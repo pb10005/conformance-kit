@@ -1,0 +1,125 @@
+# FEAT-002 — 要件の単一の正。実装・テスト・レビューはこれに従属する。
+id: FEAT-002
+title: "conformance-kit自身のCIをサンプル検査から分離する"
+status: frozen # draft -> (spec-lint --gate freeze) -> frozen
+
+intent: "conformance-kitのメンテナが、キット自身のリポジトリのCI(gateチェック)をbranch protectionのrequired statusにできるようにする。install.sh --with-samples で配布するために同梱している、意図的に違反を含むサンプル(specs/example-login/, src/auth.ts, src/rogue.ts, tests/auth.test.ts)がキット自身のconformance検査に混入して恒久的に失敗するのを止め、キット自身の実コンテンツにのみ基づいて意味のあるpass/failを返すようにする。ただしサンプルの回帰検知(install.shが壊れていないか、検出ロジックが機能し続けているか)は非必須ジョブとして維持する。"
+
+out_of_scope:
+  - "scripts/*.ts（trace-matrix.ts、spec-lint.tsを含むキット本体のロジック）をconformance.config.jsonのsrcDirsに加えて本格的にドッグフーディング対象にする拡張（別機能として扱う）"
+  - "install.shの引数体系・フラグ名（--with-samplesという名称自体を含む）の変更"
+  - "サンプルが内包する意図的な違反シナリオの中身（どのACが何の理由で落ちるか）の変更"
+  - "GitHub Actions以外のCIプロバイダへの対応"
+  - "install.sh --with-samples を過去に実行済みの外部ターゲットリポジトリに対する移行ガイド・自動マイグレーションの提供"
+
+assumptions:
+  - id: AS-001
+    statement: "サンプル一式の新しい格納場所は examples/with-samples/ とし、元のディレクトリ構造（specs/example-login/, src/, tests/）をそのまま配下に再現する（例: examples/with-samples/specs/example-login/requirements.yaml）"
+    status: confirmed
+    owner: kohei-dev
+    resolve_by: "2026-09-12"
+  - id: AS-002
+    statement: "conformance.config.json の specDir(=specs) / srcDirs(=src, tests) は変更しない。examples/ を新たに ignore に加える必要はない（specDir/srcDirsの外にあるため、既存の発見ロジック上そもそもスキャン対象に入らない）"
+    status: assumed
+    owner: kohei-dev
+    resolve_by: "2026-09-19"
+  - id: AS-003
+    statement: "サンプルの回帰検知は .github/workflows/conformance.yml 内に非必須ジョブ samples-selfcheck を追加して維持する。このジョブは continue-on-error: true とし、branch protection の required status checks には含めない"
+    status: confirmed
+    owner: kohei-dev
+    resolve_by: "2026-09-12"
+  - id: AS-004
+    statement: "origin/main と origin/master のデフォルトブランチ不一致は、.github/workflows/conformance.yml のtrace-matrix呼び出し（push時の --base ${{ github.base_ref || 'main' }} フォールバック）だけでなく、conformance.config.json の baseRef(現在 origin/main) と scripts/trace-matrix.ts の DEFAULTS.baseRef(現在 origin/main) の計3箇所に存在する。この3箇所すべてを origin/master に修正する"
+    status: assumed
+    owner: kohei-dev
+    resolve_by: "2026-09-19"
+  - id: AS-005
+    statement: "samples-selfcheck ジョブが examples/with-samples/ を対象に trace-matrix.ts を実行できるよう、trace-matrix.ts に `--root <dir>` オプションを新設する。指定時は (1) conformance.config.json を `<dir>/conformance.config.json` から読み込み、specDir・srcDirsの探索基準を `<dir>` にする、(2) git diffは実行時のリポジトリルートから `git diff --name-only --relative=<dir> --diff-filter=d <baseRef>...HEAD` として取得し、`<dir>` 配下のファイルを `<dir>` 相対パスで得ることで、ファイル探索側のパスと突合せの基準を一致させる。spec-lint.ts は既存の位置引数（例: `spec-lint.ts examples/with-samples/specs`）でそのまま対応可能なため変更しない"
+    status: assumed
+    owner: kohei-dev
+    resolve_by: "2026-09-19"
+
+open_questions: []
+
+acceptance:
+  - id: AC-001
+    kind: functional
+    given: "サンプル一式が examples/with-samples/ 配下に移設された状態で"
+    when: "リポジトリルートで `npx tsx scripts/spec-lint.ts` を実行する"
+    then: "example-login由来のID衝突（DUPLICATE_ID）・プレースホルダ（PLACEHOLDER_LEFT）が一切出力されず、exit codeが0になる"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-002
+    kind: functional
+    given: "サンプル一式が examples/with-samples/ 配下に移設され、AS-004のbaseRef修正が適用された状態で"
+    when: "リポジトリルートで `npx tsx scripts/trace-matrix.ts --base origin/master --strict` を実行する"
+    then: "rogue.ts・example-login由来のfinding（UNTRACED_CHANGE・UNCOVERED_AC）が一切出力されない。NO_BASE_REF警告も出力されない。exit codeは0になる"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-003
+    kind: functional
+    given: "examples/with-samples/ にサンプル一式が存在する状態で、空の一時ディレクトリを対象に"
+    when: "`bash install.sh <tmp-target> --with-samples` を実行する"
+    then: "<tmp-target> に specs/example-login/requirements.yaml, src/auth.ts, src/rogue.ts, tests/auth.test.ts が移設前と同一内容で作成される"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-004
+    kind: functional
+    given: "examples/with-samples/ 配下のサンプルソース（specs/example-login/、src/auth.ts、src/rogue.ts、tests/auth.test.ts）が一部または全部欠落している状態で"
+    when: "`bash install.sh <tmp-target> --with-samples` を実行する"
+    then: "install.shはエラー終了（非0 exit）しない。欠落しているサンプルごとに1行の警告メッセージを標準出力に出力する。導入完了メッセージまで出力する"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-005
+    kind: functional
+    given: "AC-001・AC-002の変更が適用された状態で"
+    when: "リポジトリルートで `npm run gate`（spec-lint.ts、trace-matrix.ts、npm test、npx tsc --noEmit を順に実行するもの）を実行する"
+    then: "すべてのコマンドがexit code 0を返す"
+    priority: must
+    verify: manual
+    status: pending
+    attempts: 0
+  - id: AC-006
+    kind: functional
+    given: "移設後の examples/with-samples/ に対して"
+    when: "`npx tsx scripts/trace-matrix.ts --root examples/with-samples --base origin/master` を実行する"
+    then: "example-loginのAC-002由来のUNCOVERED_AC、AC-003由来のNO_EVIDENCE、rogue.ts由来のUNTRACED_CHANGEのfindingが出力される。exit codeは0以外になる"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-007
+    kind: functional
+    given: "AC-001〜AC-006の変更がmasterにマージされた後"
+    when: "GitHub Actions上で `.github/workflows/conformance.yml` の gate ジョブが実行される"
+    then: "gateジョブの実行結果がGitHub Actions上に成功として表示される"
+    priority: must
+    verify: manual
+    status: pending
+    attempts: 0
+  - id: AC-008
+    kind: functional
+    given: "AC-007のgateジョブがGitHub Actions上で連続して成功するようになった後"
+    when: "`gh api repos/<owner>/<repo>/branches/master/protection` でrequired status checksを確認する"
+    then: "required status checksの一覧に `gate` を含む。"
+    priority: should
+    verify: manual
+    status: pending
+    attempts: 0
+  - id: AC-009
+    kind: functional
+    given: "AS-003で追加した samples-selfcheck ジョブについて"
+    when: "`gh api repos/<owner>/<repo>/branches/master/protection` でrequired status checksを確認する"
+    then: "required status checksの一覧へ samples-selfcheck を追加しない運用になっている"
+    priority: should
+    verify: manual
+    status: pending
+    attempts: 0
