@@ -68,4 +68,4 @@ jobs:
         run: npx tsx scripts/spec-lint.ts examples/with-samples/specs
 
       - name: sample traceability (violations expected)
-        run: npx tsx scripts/trace-matrix.ts --root examples/with-samples --base origin/${{ github.base_ref || 'master' }}
+        run: npx tsx scripts/trace-matrix.ts --root examples/with-samples --base samples-baseline

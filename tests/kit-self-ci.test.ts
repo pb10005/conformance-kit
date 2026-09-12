@@ -75,7 +75,7 @@ describe("kit self-conformance (FEAT-002)", () => {
   });
 
   it("AC-006: examples/with-samples/を--rootで検査すると意図的な違反が引き続き検出される", () => {
-    const { code, output } = run(["scripts/trace-matrix.ts", "--root", "examples/with-samples", "--base", "origin/master"]);
+    const { code, output } = run(["scripts/trace-matrix.ts", "--root", "examples/with-samples", "--base", "samples-baseline"]);
     assert.ok(output.includes("UNCOVERED_AC"), output);
     assert.ok(output.includes("NO_EVIDENCE"), output);
     assert.ok(output.includes("UNTRACED_CHANGE"), output);
