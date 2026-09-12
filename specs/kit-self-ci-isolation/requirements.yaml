@@ -30,7 +30,7 @@ assumptions:
     statement: "conformance.config.json の specDir(=specs) / srcDirs(=src, tests)
       は変更しない。examples/ を新たに ignore
       に加える必要はない（specDir/srcDirsの外にあるため、既存の発見ロジック上そもそもスキャン対象に入らない）"
-    status: assumed
+    status: confirmed
     owner: kohei-dev
     resolve_by: "2026-09-19"
   - id: AS-003
@@ -47,7 +47,7 @@ assumptions:
       フォールバック）だけでなく、conformance.config.json の baseRef(現在 origin/main) と
       scripts/trace-matrix.ts の DEFAULTS.baseRef(現在 origin/main)
       の計3箇所に存在する。この3箇所すべてを origin/master に修正する"
-    status: assumed
+    status: confirmed
     owner: kohei-dev
     resolve_by: "2026-09-19"
   - id: AS-005
@@ -59,7 +59,7 @@ assumptions:
       として取得し、`<dir>` 配下のファイルを `<dir>`
       相対パスで得ることで、ファイル探索側のパスと突合せの基準を一致させる。spec-lint.ts は既存の位置引数（例: `spec-lint.ts
       examples/with-samples/specs`）でそのまま対応可能なため変更しない"
-    status: assumed
+    status: confirmed
     owner: kohei-dev
     resolve_by: "2026-09-19"
 
