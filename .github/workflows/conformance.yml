@@ -1,3 +1,4 @@
+# @covers AC-002, AC-005, AC-007, AC-009
 name: conformance
 
 on:
@@ -27,7 +28,7 @@ jobs:
       # 順方向・逆方向・仮定のトレース。PR では --strict で
       # 「どのACにも紐づかない変更」をエラー扱いにする。
       - name: traceability
-        run: npx tsx scripts/trace-matrix.ts --base origin/${{ github.base_ref || 'main' }} --strict
+        run: npx tsx scripts/trace-matrix.ts --base origin/${{ github.base_ref || 'master' }} --strict
 
       - name: tests
         run: npm test
@@ -44,3 +45,27 @@ jobs:
         with:
           name: trace-matrix
           path: trace.json
+
+  # 配布用サンプル(examples/with-samples/)は意図的に違反を含む。gateとは分離し、
+  # install.sh の回帰と検出ロジックの健全性を確認するだけの非必須ジョブとして扱う。
+  # branch protection の required status checks には含めない（AS-003）。
+  samples-selfcheck:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: sample spec lint (violations expected)
+        run: npx tsx scripts/spec-lint.ts examples/with-samples/specs
+
+      - name: sample traceability (violations expected)
+        run: npx tsx scripts/trace-matrix.ts --root examples/with-samples --base origin/${{ github.base_ref || 'master' }}

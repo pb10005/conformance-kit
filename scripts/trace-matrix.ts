@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @covers AC-002, AC-005, AC-006
 /**
  * trace-matrix.ts
  *
@@ -12,7 +13,11 @@
  * コメント・describe・skip/todo/xit は数えない。
  *
  * usage:
- *   npx tsx scripts/trace-matrix.ts [--json] [--strict] [--base origin/main]
+ *   npx tsx scripts/trace-matrix.ts [--json] [--strict] [--base origin/master] [--root <dir>]
+ *
+ * --root <dir> : conformance.config.json / specDir / srcDirs の探索基準を <dir> にする。
+ *                git diff は常に実行時のcwdから `--relative=<dir>` で取得し、<dir> 相対パスに揃える
+ *                （@assumption AS-005: examples/with-samples/ のような別ツリーを検査するため）。
  * exit:
  *   0 = 適合  1 = 不適合(error あり)  2 = 実行エラー
  */
@@ -61,7 +66,7 @@ const DEFAULTS: Config = {
   testFilePattern: "\\.(test|spec)\\.[cm]?[jt]sx?$",
   codeExtensions: ["ts", "tsx", "js", "jsx", "mjs", "cjs"],
   ignore: ["node_modules", ".git", "dist", "build", ".next", "coverage"],
-  baseRef: "origin/main",
+  baseRef: "origin/master",
 };
 
 // ---------- args ----------
@@ -69,7 +74,10 @@ const argv = process.argv.slice(2);
 const asJson = argv.includes("--json");
 const strict = argv.includes("--strict");
 const baseArg = argv.indexOf("--base");
-const root = process.cwd();
+const rootArg = argv.indexOf("--root");
+const invocationDir = process.cwd();
+const rootRel = rootArg !== -1 ? argv[rootArg + 1] : undefined;
+const root = rootRel ? join(invocationDir, rootRel) : invocationDir;
 
 const cfgPath = join(root, "conformance.config.json");
 const cfg: Config = {
@@ -175,7 +183,8 @@ for (const dir of cfg.srcDirs) {
 // ---------- changed files (reverse trace) ----------
 let changed: string[] | null = null;
 try {
-  const out = execSync(`git diff --name-only --diff-filter=d ${cfg.baseRef}...HEAD`, { cwd: root, stdio: ["ignore", "pipe", "ignore"] }).toString();
+  const relFlag = rootRel ? `--relative=${rootRel} ` : "";
+  const out = execSync(`git diff --name-only ${relFlag}--diff-filter=d ${cfg.baseRef}...HEAD`, { cwd: invocationDir, stdio: ["ignore", "pipe", "ignore"] }).toString();
   changed = out.split("\n").map((s) => s.trim()).filter(Boolean);
 } catch { changed = null; }
 

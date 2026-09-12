@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# @covers AC-003, AC-004
 # conformance-kit を対象リポジトリへ導入する。
 #   bash install.sh <対象リポジトリのパス> [--with-samples]
 # 既存ファイルは上書きしない（.claude/ 配下の同名ファイルのみ更新）。
@@ -63,10 +64,25 @@ fi
 
 if [ "$WITH_SAMPLES" = "--with-samples" ]; then
   echo "▶ サンプル (specs/example-login, src/auth.ts, src/rogue.ts, tests/auth.test.ts)"
+  SAMPLES="$KIT/examples/with-samples"
   mkdir -p specs src tests
-  cp -rn "$KIT/specs/example-login" specs/ 2>/dev/null || true
-  cp -n "$KIT/src/"*.ts src/ 2>/dev/null || true
-  cp -n "$KIT/tests/"*.ts tests/ 2>/dev/null || true
+  if [ -d "$SAMPLES/specs/example-login" ]; then
+    cp -rn "$SAMPLES/specs/example-login" specs/ 2>/dev/null || true
+  else
+    echo "  ! サンプルが見つかりません: specs/example-login"
+  fi
+  for f in auth.ts rogue.ts; do
+    if [ -f "$SAMPLES/src/$f" ]; then
+      cp -n "$SAMPLES/src/$f" src/ 2>/dev/null || true
+    else
+      echo "  ! サンプルが見つかりません: src/$f"
+    fi
+  done
+  if [ -f "$SAMPLES/tests/auth.test.ts" ]; then
+    cp -n "$SAMPLES/tests/auth.test.ts" tests/ 2>/dev/null || true
+  else
+    echo "  ! サンプルが見つかりません: tests/auth.test.ts"
+  fi
 fi
 
 [ -e tsconfig.json ] || echo "  ! tsconfig.json が無い。gate.sh の型チェック段が失敗するので用意するか gate.sh から外す"
