@@ -1,0 +1,51 @@
+# 要件の単一の正 (single source of truth)。
+# 実装・テスト・レビューはすべてこのファイルに従属する。
+id: FEAT-001
+title: メールリンクによるログイン
+status: frozen # draft | frozen | reconciling
+
+# 過剰要件の抑制装置。空のまま frozen にはできない。
+out_of_scope:
+  - ソーシャルログイン (Google/Apple)
+  - 多要素認証
+  - セッションの複数デバイス管理画面
+
+# 三値管理: confirmed / assumed / open
+# assumed はコード側に @assumption AS-00X を残すことで機械追跡する。
+assumptions:
+  - id: AS-001
+    statement: リンクの有効期限は15分とする
+    status: assumed
+    owner: kohei
+    resolve_by: "2026-09-30"
+
+open_questions: []
+
+acceptance:
+  - id: AC-001
+    given: 未登録のメールアドレス
+    when: ログインを要求する
+    then: 200を返し、かつユーザーを新規作成しない（列挙攻撃対策）
+    priority: must
+    verify: test
+    status: pending # pending | pass | fail | blocked
+    attempts: 0
+
+  - id: AC-002
+    given: 発行から15分を超えたリンク
+    when: そのリンクを開く
+    then: 401を返し、再送導線を表示する
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+
+  - id: AC-003
+    given: 同一アドレスへの60秒以内の再送要求
+    when: 送信ボタンを押す
+    then: 429を返し、残り秒数を表示する
+    priority: should
+    verify: manual
+    evidence: "" # manual は evidence 必須。空だと gate が落ちる。
+    status: pending
+    attempts: 0
