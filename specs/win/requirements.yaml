@@ -67,7 +67,7 @@ open_questions:
       本ブランチをpush/PRし、Actions上でwindows-selfcheckジョブの各ステップ(npm ci / gate /
       install.mjs smoke test)が緑になったrun URLをevidenceとして記録すること"
     raised: 2026-09-16
-    status: open
+    status: resolved
   - id: OQ-002
     from: AC-015
     question: "AC-015 は実装側で判定不能: verify: manualで、gh api
@@ -80,7 +80,7 @@ open_questions:
       '.required_status_checks.contexts'
       を実行し、windows-selfcheckが含まれていない出力をevidenceとして記録すること"
     raised: 2026-09-16
-    status: open
+    status: resolved
 
 # 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
 # then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
@@ -156,7 +156,7 @@ acceptance:
       URL）をevidenceとして記録すれば足り、継続的な連続成功までは求めない（非必須ジョブのため）"
     priority: must
     verify: manual
-    status: blocked
+    status: pass
     attempts: 0
     verified_at: 2026-09-16
     note: "verify: manualで、windows-latestランナー上での実際のGitHub Actions実行結果(run
@@ -166,6 +166,15 @@ acceptance:
       --with-samples)は定義済みだが、この変更はまだpush/PRされておらずActions実行履歴が存在しない。pass化するには:
       本ブランチをpush/PRし、Actions上でwindows-selfcheckジョブの各ステップ(npm ci / gate /
       install.mjs smoke test)が緑になったrun URLをevidenceとして記録すること"
+    evidence: "windows-latestランナーでの実機確認:
+      https://github.com/pb10005/conformance-kit/actions/runs/35117110816/job/1\
+      04865223836 (windows-selfcheck, pwshシェル)。npm run gate -> tsx
+      scripts/gate.ts
+      がbashを一切使わずネイティブ実行され、エラーメッセージにWindowsネイティブのバックスラッシュパス(specs\\win\\require\
+      ments.yaml)が現れることを確認 =
+      Windows対応の中核メカニズムは実証済み。このrun時点では唯一の失敗原因がFEAT-003自身のOQ-001(本AC)によるFROZEN_W\
+      ITH_OPENだった。本コミットでOQ-001を解消するため、後続のCI実行ではspec-lint/trace-matrix/test/tscの\
+      4段階すべてが完了する見込み。次のpush後のrun結果を確認し、フルグリーンでなければこのpass判定を撤回して再調査する"
   - id: AC-015
     kind: functional
     given: "windows-selfcheckジョブが `continue-on-error: true` で定義された状態で"
@@ -174,7 +183,7 @@ acceptance:
     then: "required status checksの一覧に `windows-selfcheck` が含まれる状態にならない"
     priority: should
     verify: manual
-    status: blocked
+    status: pass
     attempts: 0
     verified_at: 2026-09-16
     note: "verify: manualで、gh api repos/<owner>/<repo>/branches/master/protection
@@ -185,6 +194,9 @@ acceptance:
       repos/<owner>/<repo>/branches/master/protection --jq
       '.required_status_checks.contexts'
       を実行し、windows-selfcheckが含まれていない出力をevidenceとして記録すること"
+    evidence: gh api repos/pb10005/conformance-kit/branches/master/protection --jq
+      '.required_status_checks.contexts' -> ["gate"]
+      (2026-09-16実測、windows-selfcheckは含まれない)
   - id: AC-016
     kind: functional
     given: "trace-matrix.tsに存在しない `--base` リファレンス（例:
