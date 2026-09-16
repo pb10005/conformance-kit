@@ -137,7 +137,7 @@ acceptance:
   - id: AC-003
     kind: functional
     given: "examples/with-samples/ にサンプル一式が存在する状態で、空の一時ディレクトリを対象に"
-    when: "`bash install.sh <tmp-target> --with-samples` を実行する"
+    when: "`node install.mjs <tmp-target> --with-samples` を実行する"
     then: "<tmp-target> に specs/example-login/requirements.yaml, src/auth.ts,
       src/rogue.ts, tests/auth.test.ts が移設前と同一内容で作成される"
     priority: must
@@ -147,24 +147,24 @@ acceptance:
     verified_at: 2026-09-12
     note: 一時ディレクトリへの実行でrequirements.yaml/auth.ts/rogue.ts/auth.test.tsが作成され、examples/with-samples配下と内容一致することをテストで実測確認
     evidence: tests/kit-self-ci.test.ts:35-55 (npx tsx --test
-      tests/kit-self-ci.test.ts -> ok 3); install.sh:57-79
+      tests/kit-self-ci.test.ts -> ok 3); install.mjs（FEAT-003でbash版から移植、挙動は同一）
   - id: AC-004
     kind: functional
     given: "examples/with-samples/
       配下のサンプルソース（specs/example-login/、src/auth.ts、src/rogue.ts、tests/auth.test.\
       ts）が一部または全部欠落している状態で"
-    when: "`bash install.sh <tmp-target> --with-samples` を実行する"
-    then: "install.shはエラー終了（非0
+    when: "`node install.mjs <tmp-target> --with-samples` を実行する"
+    then: "install.mjsはエラー終了（非0
       exit）しない。欠落しているサンプルごとに1行の警告メッセージを標準出力に出力する。導入完了メッセージまで出力する"
     priority: should
     verify: test
     status: pass
     attempts: 0
     verified_at: 2026-09-12
-    note: rogue.tsを一時退避したケースでinstall.shが非0終了せず、欠落分の警告1行と導入完了メッセージを出すことを実測。install.sh側は各サンプル項目ごとに同型の存在チェック+警告ループのため他項目欠落時も同様に振る舞うことをコードで確認
+    note: rogue.tsを一時退避したケースでinstall.mjsが非0終了せず、欠落分の警告1行と導入完了メッセージを出すことを実測。install.mjs側は各サンプル項目ごとに同型の存在チェック+警告ループのため他項目欠落時も同様に振る舞うことをコードで確認（FEAT-003でbash版から移植、挙動は同一）
     evidence: "tests/kit-self-ci.test.ts:57-75 (npx tsx --test
-      tests/kit-self-ci.test.ts -> ok 4); install.sh:64-79 (欠落ファイルごとにecho '!
-      サンプルが見つかりません: <path>' を出し、cpは各ファイルごとにif存在チェックしているためexit非0にならない)"
+      tests/kit-self-ci.test.ts -> ok 4); install.mjs (欠落ファイルごとに'!
+      サンプルが見つかりません: <path>' を出力し、各ファイルごとに存在チェックしているためexit非0にならない)"
   - id: AC-005
     kind: functional
     given: "AC-001・AC-002の変更が適用された状態で"

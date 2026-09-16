@@ -27,7 +27,7 @@ scripts/spec-init.ts                要件の骨組み生成（白紙を作ら�
 scripts/spec-lint.ts                要件の機械検査と freeze 遷移ゲート
 scripts/trace-matrix.ts             順方向・逆方向・仮定のトレース検査
 scripts/record-verdict.ts           検証結果の書き戻しと自動エスカレーション
-scripts/gate.sh                     トレース + テスト + 型
+scripts/gate.ts                     トレース + テスト + 型（bash不使用、Windows対応）
 .claude/skills/spec-intake/         要件抽出の手順（Claude が自動で参照）
 .claude/skills/conformance-verify/  検証ループの手順（同上）
 .claude/agents/spec-challenger.md   要件を敵対的にレビューするサブエージェント
@@ -45,12 +45,16 @@ HANDOFF.md                          Claude Code への引き継ぎ手順と既�
 ## 導入
 
 ```bash
-bash install.sh <対象リポジトリのパス> [--with-samples]
+node install.mjs <対象リポジトリのパス> [--with-samples]
 cd <対象リポジトリ>
 npm i yaml && npm i -D tsx typescript @types/node
 ```
 
-`install.sh` は `.claude/` `scripts/` `conformance.config.json` `.github/workflows/` を配置し、
+`install.mjs` はプレーンな Node ESM（追加依存なし）で書かれており、Windows のネイティブ
+PowerShell/cmd.exe でも Git Bash や WSL を別途用意せずにそのまま動く（`gate.ts`/`install.mjs`
+はどちらも bash に依存しない）。
+
+`install.mjs` は `.claude/` `scripts/` `conformance.config.json` `.github/workflows/` を配置し、
 既存の `CLAUDE.md` があれば末尾に追記、`package.json` の `scripts` に不足分だけ追加する。
 既存ファイルは上書きせず、二重実行しても安全。
 

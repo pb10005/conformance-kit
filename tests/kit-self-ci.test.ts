@@ -32,10 +32,10 @@ describe("kit self-conformance (FEAT-002)", () => {
     assert.equal(code, 0, output);
   });
 
-  it("AC-003: install.shは--with-samplesでサンプル一式を移設前と同一内容で作成する", () => {
+  it("AC-003: install.mjsは--with-samplesでサンプル一式を移設前と同一内容で作成する", () => {
     const tmp = mkdtempSync(join(tmpdir(), "conformance-kit-install-"));
     try {
-      execFileSync("bash", ["install.sh", tmp, "--with-samples"], { stdio: ["ignore", "pipe", "pipe"] });
+      execFileSync(process.execPath, ["install.mjs", tmp, "--with-samples"], { stdio: ["ignore", "pipe", "pipe"] });
       const req = join(tmp, "specs/example-login/requirements.yaml");
       const authTs = join(tmp, "src/auth.ts");
       const rogueTs = join(tmp, "src/rogue.ts");
@@ -54,13 +54,13 @@ describe("kit self-conformance (FEAT-002)", () => {
     }
   });
 
-  it("AC-004: サンプルソースが欠落してもinstall.shはエラー終了せず欠落分の警告を出す", () => {
+  it("AC-004: サンプルソースが欠落してもinstall.mjsはエラー終了せず欠落分の警告を出す", () => {
     const rogueTs = "examples/with-samples/src/rogue.ts";
     const backup = rogueTs + ".bak";
     const tmpTarget = mkdtempSync(join(tmpdir(), "conformance-kit-target-"));
     renameSync(rogueTs, backup);
     try {
-      const output = execFileSync("bash", ["install.sh", tmpTarget, "--with-samples"], {
+      const output = execFileSync(process.execPath, ["install.mjs", tmpTarget, "--with-samples"], {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
       });

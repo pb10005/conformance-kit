@@ -5,17 +5,19 @@
 要件抽出（/spec → /freeze）と適合性検証（/verify → /reconcile）の2フェーズからなるパイプライン。
 完了判断を「テストが通った」から「全受入基準が証拠付き pass、または人間へ返却済み」へ移す。
 動作確認済み（Node 22.22 / tsx / yaml）。設計判断は README.md、日々の規約は CLAUDE.md を参照。
+`gate.ts`/`install.mjs` はbashに依存しないため、Windows は Git Bash や WSL を別途用意しなくても
+ネイティブの PowerShell/cmd.exe から動く。
 
 ## 導入手順（最初のタスク）
 
-1. `bash install.sh <対象リポジトリのパス>` を実行する
+1. `node install.mjs <対象リポジトリのパス>` を実行する
    （動作確認用サンプルも入れる場合は末尾に `--with-samples`）
    既存ファイルは上書きしない。`CLAUDE.md` は末尾に追記、`package.json` の `scripts` は不足分のみ追加される
 2. 対象リポジトリで `npm i yaml && npm i -D tsx typescript @types/node`
 3. `conformance.config.json` の `srcDirs` / `testFilePattern` / `codeExtensions` を対象リポジトリに合わせる
    （Next.js なら `srcDirs: ["app", "src", "lib", "tests"]`、Vitest なら `testFilePattern` はそのままでよい）
-4. `package.json` に `scripts.test` があることを確認する。`gate.sh` が `npm test` を呼ぶ
-5. `tsconfig.json` が無い場合、`gate.sh` の型チェック段を外すか tsconfig を用意する
+4. `package.json` に `scripts.test` があることを確認する。`gate.ts` が `node --test` を呼ぶ
+5. `tsconfig.json` が無い場合、`gate.ts` の型チェック段を外すか tsconfig を用意する
 6. `npx tsx scripts/spec-lint.ts` と `npx tsx scripts/trace-matrix.ts` が動くことを確認する（要件が無ければ exit 2 が正常）
 7. `--with-samples` を使った場合、`specs/example-login/` `src/auth.ts` `src/rogue.ts` `tests/auth.test.ts` は動作確認後に削除する
 

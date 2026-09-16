@@ -7,7 +7,7 @@
     "test": "node --test --experimental-strip-types tests/*.test.ts",
     "trace": "tsx scripts/trace-matrix.ts",
     "verdict": "tsx scripts/record-verdict.ts",
-    "gate": "bash scripts/gate.sh",
+    "gate": "tsx scripts/gate.ts",
     "spec": "tsx scripts/spec-init.ts",
     "lint:spec": "tsx scripts/spec-lint.ts"
   },

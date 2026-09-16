@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @covers AC-002, AC-005, AC-006
+// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016
 /**
  * trace-matrix.ts
  *
@@ -25,6 +25,7 @@ import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, relative, extname } from "node:path";
 import { execSync } from "node:child_process";
 import { parse } from "yaml";
+import { toPosixPath } from "./lib/posix-path.ts";
 
 // ---------- types ----------
 type Level = "error" | "warn";
@@ -171,7 +172,7 @@ for (const dir of cfg.srcDirs) {
       for (const id of m[5].match(AC_RE) ?? []) (skipped ? skippedTitles : activeTitles).add(id);
     }
     files.push({
-      path: relative(root, f),
+      path: toPosixPath(relative(root, f)),
       isTest: testRe.test(f),
       mentions: new Set(text.match(AC_RE) ?? []),
       activeTitles, skippedTitles, covers,
