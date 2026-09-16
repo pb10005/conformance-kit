@@ -6,10 +6,14 @@ import { mkdtempSync, rmSync, renameSync, existsSync, mkdirSync, writeFileSync }
 import { join, relative } from "node:path";
 import { tmpdir } from "node:os";
 import { toPosixPath } from "../scripts/lib/posix-path.ts";
+import { resolveTsxCli } from "../scripts/lib/tsx-cli.ts";
 
 function run(args: string[]): { code: number; output: string } {
   try {
-    const output = execFileSync("npx", ["tsx", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const output = execFileSync(process.execPath, [resolveTsxCli(), ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     return { code: 0, output };
   } catch (err) {
     const e = err as { status?: number; stdout?: Buffer; stderr?: Buffer };

@@ -156,16 +156,20 @@ acceptance:
       URL）をevidenceとして記録すれば足り、継続的な連続成功までは求めない（非必須ジョブのため）"
     priority: must
     verify: manual
-    status: pass
-    attempts: 0
+    status: fail
+    attempts: 1
     verified_at: 2026-09-16
-    note: "verify: manualで、windows-latestランナー上での実際のGitHub Actions実行結果(run
-      URL、各ステップexit code
-      0)を要求している。.github/workflows/conformance.ymlにwindows-selfcheckジョブ(continue\
-      -on-error: true, npm ci -> npm run gate -> node install.mjs <tmp>
-      --with-samples)は定義済みだが、この変更はまだpush/PRされておらずActions実行履歴が存在しない。pass化するには:
-      本ブランチをpush/PRし、Actions上でwindows-selfcheckジョブの各ステップ(npm ci / gate /
-      install.mjs smoke test)が緑になったrun URLをevidenceとして記録すること"
+    note: "前回のpass判定は撤回。OQ-001/OQ-002解消後の2回目のCI実行(run 35117687920, job
+      104867182536)でgateのtest step(3/4)が5件failし、実際はフルグリーンではなかった。原因を特定: (1)
+      tests/kit-self-ci.test.tsとtests/win-support.test.tsのrun()ヘルパーがexecFileSyn\
+      c('npx',...)をshellオプション無しで呼んでおり、Windows上ではnpx.cmdをspawnできず即座に失敗(AC-001/AC\
+      -002/AC-016に影響)。(2) tests/win-support.test.tsのAC-017が
+      examples/with-samples/tests/auth.test.ts を一時rename
+      する一方、tests/kit-self-ci.test.tsのAC-003が同じファイルの存在を前提にしており、node
+      --testが複数テストファイルを既定で並行実行するためレースコンディションが発生(AC-003に影響)。両方を修正:
+      run()ヘルパーはtsx/cliをprocess.execPathで直接解決するgate.ts方式に統一(scripts/lib/tsx-cli\
+      .ts新設)、node
+      --testに--test-concurrency=1を追加してクロスファイルの並行実行を止めた。次のpushで再度実機確認する"
     evidence: "windows-latestランナーでの実機確認:
       https://github.com/pb10005/conformance-kit/actions/runs/35117110816/job/1\
       04865223836 (windows-selfcheck, pwshシェル)。npm run gate -> tsx

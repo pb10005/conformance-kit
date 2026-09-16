@@ -5,10 +5,14 @@ import { execFileSync } from "node:child_process";
 import { mkdtempSync, rmSync, renameSync, existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { resolveTsxCli } from "../scripts/lib/tsx-cli.ts";
 
 function run(args: string[]): { code: number; output: string } {
   try {
-    const output = execFileSync("npx", ["tsx", ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+    const output = execFileSync(process.execPath, [resolveTsxCli(), ...args], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
     return { code: 0, output };
   } catch (err) {
     const e = err as { status?: number; stdout?: Buffer; stderr?: Buffer };

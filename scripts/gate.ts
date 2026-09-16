@@ -18,11 +18,12 @@ import { spawnSync } from "node:child_process";
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+import { resolveTsxCli } from "./lib/tsx-cli.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 process.chdir(root);
 
-const tsxCli = fileURLToPath(import.meta.resolve("tsx/cli"));
+const tsxCli = resolveTsxCli();
 const tscBin = join(root, "node_modules", "typescript", "bin", "tsc");
 
 function run(args: string[]): void {
@@ -40,7 +41,7 @@ console.log("── 3/4 テスト");
 const testFiles = readdirSync(join(root, "tests"))
   .filter((f) => f.endsWith(".test.ts"))
   .map((f) => join("tests", f));
-run(["--test", "--experimental-strip-types", ...testFiles]);
+run(["--test", "--test-concurrency=1", "--experimental-strip-types", ...testFiles]);
 
 console.log("── 4/4 型");
 run([tscBin, "--noEmit"]);
