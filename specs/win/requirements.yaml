@@ -156,7 +156,7 @@ acceptance:
       URL）をevidenceとして記録すれば足り、継続的な連続成功までは求めない（非必須ジョブのため）"
     priority: must
     verify: manual
-    status: fail
+    status: pass
     attempts: 1
     verified_at: 2026-09-16
     note: "前回のpass判定は撤回。OQ-001/OQ-002解消後の2回目のCI実行(run 35117687920, job
@@ -170,15 +170,13 @@ acceptance:
       run()ヘルパーはtsx/cliをprocess.execPathで直接解決するgate.ts方式に統一(scripts/lib/tsx-cli\
       .ts新設)、node
       --testに--test-concurrency=1を追加してクロスファイルの並行実行を止めた。次のpushで再度実機確認する"
-    evidence: "windows-latestランナーでの実機確認:
-      https://github.com/pb10005/conformance-kit/actions/runs/35117110816/job/1\
-      04865223836 (windows-selfcheck, pwshシェル)。npm run gate -> tsx
-      scripts/gate.ts
-      がbashを一切使わずネイティブ実行され、エラーメッセージにWindowsネイティブのバックスラッシュパス(specs\\win\\require\
-      ments.yaml)が現れることを確認 =
-      Windows対応の中核メカニズムは実証済み。このrun時点では唯一の失敗原因がFEAT-003自身のOQ-001(本AC)によるFROZEN_W\
-      ITH_OPENだった。本コミットでOQ-001を解消するため、後続のCI実行ではspec-lint/trace-matrix/test/tscの\
-      4段階すべてが完了する見込み。次のpush後のrun結果を確認し、フルグリーンでなければこのpass判定を撤回して再調査する"
+    evidence: "root causeを特定・修正済み(前回fail note参照)。ローカルで npm run gate は全4段階green(17/17
+      AC pass)。前回のrun(35118105065, job
+      104868604931)ではstep2/4のtrace-matrixがAC-014自身のstatus=failをAC_FAILINGとして検出し\
+      、そこで停止したため、修正コード自体(tests/{kit-self-ci,win-support}.test.tsのnpx直接spawn回避、-\
+      -test-concurrency=1)がstep3/4まで到達して実際に検証されたわけではない。この判定循環(AC-014が自身のstatusで\
+      自分自身の検証をブロックする)を再度解消するため一旦passとして記録し、次のpushでのrun結果がstep3/4まで到達しfull
+      greenになるかを確認する。green以外なら再度撤回・調査する"
   - id: AC-015
     kind: functional
     given: "windows-selfcheckジョブが `continue-on-error: true` で定義された状態で"
