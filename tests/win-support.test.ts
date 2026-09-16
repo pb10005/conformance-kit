@@ -37,7 +37,10 @@ describe("Windows対応 (FEAT-003)", () => {
   it("AC-016: 存在しない--baseを指定してもNO_BASE_REF警告のみでexit codeは0のまま処理が継続する", () => {
     // 本体リポジトリの他spec(FEAT-003自体を含む)は未検証ACを多数抱えており、その他findingの
     // 影響を受けずにNO_BASE_REFフォールバック単体の挙動を見るため、完結した最小fixtureを --root で検査する。
-    const tmp = mkdtempSync(join(tmpdir(), "conformance-kit-nobase-"));
+    // --root は invocationDir からの相対パスとしてjoin()される実装のため、OSのtmpdir()を使うと
+    // Windows上でドライブレター違い（例: リポジトリはD:、TEMPはC:）でrelative()が正しく機能しない。
+    // リポジトリ自身のツリー内（同一ドライブが保証される）に作成する。
+    const tmp = mkdtempSync(join(process.cwd(), ".tmp-nobase-"));
     try {
       mkdirSync(join(tmp, "specs", "x"), { recursive: true });
       writeFileSync(
