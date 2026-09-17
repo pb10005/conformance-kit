@@ -1,0 +1,260 @@
+# FEAT-003 — 要件の単一の正。実装・テスト・レビューはこれに従属する。
+#
+# 埋め方: 人間に質問する前に、AIが全項目を推測で埋め切ること。
+# 人間の仕事は白紙を埋めることではなく、埋まったものを否定・修正することにある。
+# 確信が持てない箇所は open_questions か assumptions に置き、空欄で残さない。
+id: FEAT-003
+title: "conformance-kitのツール群をWindows OSでも動作させる"
+status: frozen # draft -> (spec-lint --gate freeze) -> frozen
+
+# 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
+intent: "Git
+  BashやWSLを別途用意していないWindows機の開発者が、conformance-kit自身のツール群（scripts/*.ts、gate.sh、i\
+  nstall.sh、npm run
+  gate）をネイティブのPowerShell/cmd.exeだけで実行しても、macOS/Linuxと同じ判定結果を得られるようにする。bashへの依存を\
+  排除し、 実際にWindows環境で動作することをCIで証明する。"
+
+# 過剰実装を止める外周。draft を抜けるには最低1件必要。
+# 「やらないと決めたこと」であって「将来やること」ではない。
+out_of_scope:
+  - "既存のbash版 scripts/gate.sh・install.sh
+    を後方互換シムとして残すこと。Node.js版へ完全に置き換え、二重実装は持たない"
+  - "過去に旧bash版install.shを導入済みの外部ターゲットリポジトリに対する自動移行・アップグレード導線の提供（README記載のみで足りると\
+    する）"
+  - "install.sh／gate.sh書き換え後のCLIインターフェース（位置引数、`--with-samples`というフラグ名自体）の変更"
+  - "NTFSのようなWindows固有のファイルシステムI/O性能に関する非機能要件"
+  - "VS Codeをはじめとするエディタ統合やWSLのセットアップ手順そのものの整備"
+
+# 確信が持てないまま進める判断。コード側に @assumption AS-001 を残して回収可能にする。
+# owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
+assumptions:
+  - id: AS-006
+    statement: "scripts/gate.sh のロジックは
+      scripts/gate.ts（tsxで実行、他のscripts/*.tsと同じ流儀）へ移植し、package.json の
+      `scripts.gate` を `tsx scripts/gate.ts` に更新する。install.sh のロジックは
+      install.mjs（プレーンなNode ESM、追加依存なし）へ移植する。理由: installスクリプトは『npm
+      iする前に実行される』という現状の起動順を壊さないため、tsxのインストールを前提にできない。両者ともbashを一切呼び出さない"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-09-24"
+  - id: AS-007
+    statement: "新設するWindows CIジョブ(windows-selfcheck)はwindows-latestランナー上で `npm ci` →
+      `npm run gate` （Node.js版、bash不使用）→ `node install.mjs <一時ディレクトリ>
+      --with-samples` を実行し、いずれもbashを介さず成功することを確認する。ジョブは非必須（continue-on-error:
+      true）とし、branch protectionのrequired status checksには追加しない"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-09-24"
+  - id: AS-009
+    statement: "本機能の実装により FEAT-002(kit-self-ci-isolation) の AC-003/AC-004 の
+      given/when 文言（`bash install.sh <tmp-target> --with-samples`
+      という記述）が実態と乖離する（`node install.mjs ...` に変わるため）。実装後に `/reconcile`
+      で該当spec側の文言を更新する。AC-003/AC-004自体の合否判定基準（生成ファイル内容の一致・サンプル欠落時に非0終了しない・警告1行ず\
+      つ出力）は変えない"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-17"
+
+# 人間の判断が要る未決事項。frozen にするには空にする（確定させるか assumptions へ降格）。
+open_questions:
+  - id: OQ-001
+    from: AC-014
+    question: "AC-014 は実装側で判定不能: verify: manualで、windows-latestランナー上での実際のGitHub
+      Actions実行結果(run URL、各ステップexit code
+      0)を要求している。.github/workflows/conformance.ymlにwindows-selfcheckジョブ(continue\
+      -on-error: true, npm ci -> npm run gate -> node install.mjs <tmp>
+      --with-samples)は定義済みだが、この変更はまだpush/PRされておらずActions実行履歴が存在しない。pass化するには:
+      本ブランチをpush/PRし、Actions上でwindows-selfcheckジョブの各ステップ(npm ci / gate /
+      install.mjs smoke test)が緑になったrun URLをevidenceとして記録すること"
+    raised: 2026-09-16
+    status: resolved
+  - id: OQ-002
+    from: AC-015
+    question: "AC-015 は実装側で判定不能: verify: manualで、gh api
+      repos/<owner>/<repo>/branches/master/protection
+      の実際の出力を要求している。.github/workflows/conformance.yml上ではwindows-selfcheckがconti\
+      nue-on-error: trueで定義され、requiredジョブ(gate)とは分離されているが、実際のbranch
+      protection設定(required_status_checks.contexts)にwindows-selfcheckが含まれていないこと\
+      はリポジトリのGitHub設定を直接確認しないと判定できない。pass化するには: gh api
+      repos/<owner>/<repo>/branches/master/protection --jq
+      '.required_status_checks.contexts'
+      を実行し、windows-selfcheckが含まれていない出力をevidenceとして記録すること"
+    raised: 2026-09-16
+    status: resolved
+  - id: OQ-003
+    from: AC-014
+    question: "2回の修正で AC-014 が満たせない。受入基準自体が誤っている / 前提が欠けている可能性がある。最新の失敗:
+      3回目のCI実行(run 35118265490, job
+      104869148642)でstep1/4,2/4はgreenになった(前回修正の効果を確認)。step3/4でAC-016のみ新たなfailを検\
+      出:
+      tests/win-support.test.tsのAC-016フィクスチャがos.tmpdir()に一時ディレクトリを作成していたため、wind\
+      ows-latestランナーでリポジトリ(D:)とTEMP(C:)のドライブレターが異なり、path.relative(cwd,
+      tmp)がtrace-matrix.tsの--root結合(join(invocationDir, rootRel))で正しく解決できず'no
+      requirements.yaml under specs/'エラーになった。修正:
+      フィクスチャをprocess.cwd()配下(リポジトリと同一ドライブ保証)に作成するよう変更。次のpushで再確認する"
+    raised: 2026-09-16
+    status: resolved
+    note: 人間(pb10005)がroot cause特定済みの修正内容を確認し、pushしての再確認継続を明示的に許可した
+  - id: OQ-004
+    from: AC-014
+    question: "3回の修正で AC-014 が満たせない。受入基準自体が誤っている / 前提が欠けている可能性がある。最新の失敗:
+      4回目のCI実行(run 35118616709, job 104870355684)でついに 'gate (Node直接実行、bash不使用)'
+      ステップ(npm run
+      gate全4段階)がgreenになった。前回までの3件の修正(npx直接spawn回避・--test-concurrency=1・フィクスチャのド\
+      ライブレター問題)はすべて有効だったことを実機で確認。ただし後続の'install.mjs smoke test'ステップで新たな問題:
+      .github/workflows/conformance.yml側のバグで、'node install.mjs \"${{ runner.temp
+      }}/win-install-check\" --with-samples'
+      が対象ディレクトリを事前作成せずに渡していたため、install.mjs側の 'not a directory'
+      チェック(既存install.sh由来の正しい挙動)で弾かれた。install.mjs自体の不具合ではなくCIワークフロー側の記述ミス。修正:
+      mkdirステップを追加。次のpushで最終確認する"
+    raised: 2026-09-16
+    status: resolved
+    note: "mkdir修正をpush。加えて人間(pb10005)が2026-09-18に実機のWindows環境で独立に動作確認し『問題ない』と明示的に確\
+      認した"
+
+# 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
+# then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
+acceptance:
+  - id: AC-010
+    kind: functional
+    given: "trace-matrix.tsが `git diff --name-only`
+      （常にフォワードスラッシュ区切りで出力される）と、node:pathの`relative()`（Windows上ではバックスラッシュ区切りを返す）\
+      の両方でファイルパスを扱っている状態で"
+    when: "Windows形式（バックスラッシュ区切り）のパス文字列と、同一ファイルを指すフォワードスラッシュ区切りのgit diffパスを比較する"
+    then: "両者は大文字小文字を区別した完全一致で同一ファイルと判定され、UNSCANNED_CHANGEの誤検知やUNTRACED_CHANGEの検出漏れ\
+      が発生しない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-16
+    evidence: tests/win-support.test.ts:21-26 (it実行結果ok);
+      scripts/trace-matrix.ts:175,232-239でtoPosixPath(relative(root,f))とgit
+      diff出力(常にposix)を比較する実装を確認
+  - id: AC-011
+    kind: functional
+    given: "`--root <dir>` オプション指定時（examples/with-samples のような別ツリーを検査する経路）で、`git
+      diff --relative=<dir>` の出力（フォワードスラッシュ）を使う状態で"
+    when: "AC-010と同じパス区切りの正規化ロジックを --root 指定時のファイル突合にも適用する"
+    then: "--root指定時も同一ファイルとして一致し、UNSCANNED_CHANGE/UNTRACED_CHANGEの誤検知・検出漏れが発生しない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-16
+    evidence: tests/win-support.test.ts:28-31 (it実行結果ok);
+      scripts/trace-matrix.ts:175,187で--root時もrelFlag=--relative=<dir>と同一のtoPosixPath正規化を共有していることを確認。既存tests/kit-self-ci.test.ts:77-79のAC-006テストが--root経路のgit
+      diff突合を実運用で検証済み
+  - id: AC-012
+    kind: functional
+    given: "AS-006に従いgate.shのロジックがscripts/gate.tsへ、install.shのロジックがinstall.mjsへ移植され\
+      、リポジトリから scripts/gate.sh と install.sh が削除された状態で"
+    when: "scripts/gate.ts と install.mjs のソースコードを調べる"
+    then: "どちらのファイルにも `bash` という文字列や `.sh` への参照、child_processによるシェル起動を含む記述が存在しない"
+    priority: must
+    verify: inspection
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-16
+    evidence: scripts/gate.ts, install.mjs をgrep -n
+      'bash|\\.sh\\b|child_process|exec('
+      で検査、該当なし（gate.ts:17でchild_process.spawnSyncをimportするがshellオプション未使用・argv配列渡しでbash/.sh起動なし）。scripts/gate.sh・install.shはgit
+      status上deletedでリポジトリに存在しない
+  - id: AC-013
+    kind: functional
+    given: "README.mdまたはHANDOFF.mdの導入手順を更新した状態で"
+    when: "該当ドキュメントを確認する"
+    then: "導入コマンドが `node install.mjs <target> [--with-samples]` に、ゲート実行コマンドが `npm
+      run gate` （内部でtsx
+      scripts/gate.tsを呼ぶ）に更新されており、Windows(PowerShell/cmd.exe)でも追加のシェル無しに動作する旨の記\
+      述を含む"
+    priority: should
+    verify: inspection
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-16
+    evidence: README.md:48 'node install.mjs <対象リポジトリのパス> [--with-samples]',
+      README.md:73 'npm run gate', README.md:53-54でWindows
+      PowerShell/cmd.exeでGit Bash/WSL不要と明記。HANDOFF.md:8-9,13にも同内容の記述あり
+  - id: AC-014
+    kind: functional
+    given: "`.github/workflows/conformance.yml` にwindows-latestランナーの非必須ジョブ（例:
+      windows-selfcheck）を追加した状態で"
+    when: "実装後の最初のpush/PRでそのジョブがGitHub Actions上で `npm ci` → `npm run gate` → `node
+      install.mjs <一時ディレクトリ> --with-samples` を順に実行する"
+    then: "全ステップが終了コード0を返す。1回分のAction実行結果（run
+      URL）をevidenceとして記録すれば足り、継続的な連続成功までは求めない（非必須ジョブのため）"
+    priority: must
+    verify: manual
+    status: pass
+    attempts: 3
+    verified_at: 2026-09-17
+    note: "4回目のCI実行(run 35118616709, job 104870355684)でついに 'gate (Node直接実行、bash不使用)'
+      ステップ(npm run
+      gate全4段階)がgreenになった。前回までの3件の修正(npx直接spawn回避・--test-concurrency=1・フィクスチャのド\
+      ライブレター問題)はすべて有効だったことを実機で確認。ただし後続の'install.mjs smoke test'ステップで新たな問題:
+      .github/workflows/conformance.yml側のバグで、'node install.mjs \"${{ runner.temp
+      }}/win-install-check\" --with-samples'
+      が対象ディレクトリを事前作成せずに渡していたため、install.mjs側の 'not a directory'
+      チェック(既存install.sh由来の正しい挙動)で弾かれた。install.mjs自体の不具合ではなくCIワークフロー側の記述ミス。修正:
+      mkdirステップを追加。次のpushで最終確認する"
+    evidence: "最終確認:
+      https://github.com/pb10005/conformance-kit/actions/runs/35241994049/job/1\
+      05272491395 (windows-selfcheck)。windows-latestランナー上で 'gate
+      (Node直接実行、bash不使用)' と 'install.mjs smoke test'
+      の両ステップが完全green(全ステップ成功、bash不使用)。required
+      statusのgateジョブ(ubuntu)も同時にgreen。加えて人間(pb10005)が2026-09-18に実機のWindows環境で独立\
+      に動作確認済み"
+  - id: AC-015
+    kind: functional
+    given: "windows-selfcheckジョブが `continue-on-error: true` で定義された状態で"
+    when: "`gh api repos/<owner>/<repo>/branches/master/protection` でrequired status
+      checksを確認する"
+    then: "required status checksの一覧に `windows-selfcheck` が含まれる状態にならない"
+    priority: should
+    verify: manual
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-16
+    note: "verify: manualで、gh api repos/<owner>/<repo>/branches/master/protection
+      の実際の出力を要求している。.github/workflows/conformance.yml上ではwindows-selfcheckがconti\
+      nue-on-error: trueで定義され、requiredジョブ(gate)とは分離されているが、実際のbranch
+      protection設定(required_status_checks.contexts)にwindows-selfcheckが含まれていないこと\
+      はリポジトリのGitHub設定を直接確認しないと判定できない。pass化するには: gh api
+      repos/<owner>/<repo>/branches/master/protection --jq
+      '.required_status_checks.contexts'
+      を実行し、windows-selfcheckが含まれていない出力をevidenceとして記録すること"
+    evidence: gh api repos/pb10005/conformance-kit/branches/master/protection --jq
+      '.required_status_checks.contexts' -> ["gate"]
+      (2026-09-16実測、windows-selfcheckは含まれない)
+  - id: AC-016
+    kind: functional
+    given: "trace-matrix.tsに存在しない `--base` リファレンス（例:
+      does-not-exist-ref）を指定した状態で（git実行環境の差異でも同じフォールバックが機能することの確認を兼ねる）"
+    when: "`npx tsx scripts/trace-matrix.ts --base does-not-exist-ref` を実行する"
+    then: "NO_BASE_REF警告が出力され、exit codeは0を返す（他のerror findingが無い限り異常終了しない）"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-16
+    evidence: tests/win-support.test.ts:33-77 (it 'AC-016' 実行結果ok, tsx --testで確認);
+      加えて手動でnpx tsx scripts/trace-matrix.ts --root <fixture> --base
+      does-not-exist-refを直接実行しNO_BASE_REF警告出力・exit code 0を独立確認
+  - id: AC-017
+    kind: functional
+    given: "install.mjsが対象ディレクトリへサンプル一式をコピーする際、examples/with-samples配下の一部ファイル（例:
+      src/rogue.ts）が欠落している状態で"
+    when: "`node install.mjs <tmp-target> --with-samples` を実行する"
+    then: "install.mjsはエラー終了（非0
+      exit）しない。欠落しているサンプルごとに1行の警告メッセージを標準出力に出力し、導入完了メッセージまで出力する（FEAT-002
+      AC-004と同じ挙動を維持する）"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-16
+    evidence: "tests/win-support.test.ts:79-97 (it 'AC-017' 実行結果ok);
+      tests/auth.test.tsを一時退避しnode install.mjs <tmp> --with-samplesを実行、'見つかりません:
+      tests/auth.test.ts'警告と'導入完了'メッセージの両方出力・非0終了しないことをアサーション、src/auth.tsはコピーされ\
+      tests/auth.test.tsは未作成であることも確認済み"

@@ -4,10 +4,10 @@
   "description": "要件抽出（/spec → /freeze）と適合性検証（/verify → /reconcile）のパイプライン",
   "main": "index.js",
   "scripts": {
-    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "test": "node --test --test-concurrency=1 --experimental-strip-types tests/*.test.ts",
     "trace": "tsx scripts/trace-matrix.ts",
     "verdict": "tsx scripts/record-verdict.ts",
-    "gate": "bash scripts/gate.sh",
+    "gate": "tsx scripts/gate.ts",
     "spec": "tsx scripts/spec-init.ts",
     "lint:spec": "tsx scripts/spec-lint.ts"
   },
