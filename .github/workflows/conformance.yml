@@ -92,4 +92,6 @@ jobs:
         run: npm run gate
 
       - name: install.mjs smoke test
-        run: node install.mjs "${{ runner.temp }}/win-install-check" --with-samples
+        run: |
+          mkdir "${{ runner.temp }}/win-install-check"
+          node install.mjs "${{ runner.temp }}/win-install-check" --with-samples

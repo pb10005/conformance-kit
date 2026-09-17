@@ -94,7 +94,21 @@ open_questions:
       フィクスチャをprocess.cwd()配下(リポジトリと同一ドライブ保証)に作成するよう変更。次のpushで再確認する"
     raised: 2026-09-16
     status: resolved
-    note: "人間(pb10005)がroot cause特定済みの修正内容を確認し、pushしての再確認継続を明示的に許可した"
+    note: 人間(pb10005)がroot cause特定済みの修正内容を確認し、pushしての再確認継続を明示的に許可した
+  - id: OQ-004
+    from: AC-014
+    question: "3回の修正で AC-014 が満たせない。受入基準自体が誤っている / 前提が欠けている可能性がある。最新の失敗:
+      4回目のCI実行(run 35118616709, job 104870355684)でついに 'gate (Node直接実行、bash不使用)'
+      ステップ(npm run
+      gate全4段階)がgreenになった。前回までの3件の修正(npx直接spawn回避・--test-concurrency=1・フィクスチャのド\
+      ライブレター問題)はすべて有効だったことを実機で確認。ただし後続の'install.mjs smoke test'ステップで新たな問題:
+      .github/workflows/conformance.yml側のバグで、'node install.mjs \"${{ runner.temp
+      }}/win-install-check\" --with-samples'
+      が対象ディレクトリを事前作成せずに渡していたため、install.mjs側の 'not a directory'
+      チェック(既存install.sh由来の正しい挙動)で弾かれた。install.mjs自体の不具合ではなくCIワークフロー側の記述ミス。修正:
+      mkdirステップを追加。次のpushで最終確認する"
+    raised: 2026-09-16
+    status: open
 
 # 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
 # then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
@@ -170,17 +184,18 @@ acceptance:
       URL）をevidenceとして記録すれば足り、継続的な連続成功までは求めない（非必須ジョブのため）"
     priority: must
     verify: manual
-    status: pass
-    attempts: 2
+    status: blocked
+    attempts: 3
     verified_at: 2026-09-16
-    note: "3回目のCI実行(run 35118265490, job
-      104869148642)でstep1/4,2/4はgreenになった(前回修正の効果を確認)。step3/4でAC-016のみ新たなfailを検\
-      出:
-      tests/win-support.test.tsのAC-016フィクスチャがos.tmpdir()に一時ディレクトリを作成していたため、wind\
-      ows-latestランナーでリポジトリ(D:)とTEMP(C:)のドライブレターが異なり、path.relative(cwd,
-      tmp)がtrace-matrix.tsの--root結合(join(invocationDir, rootRel))で正しく解決できず'no
-      requirements.yaml under specs/'エラーになった。修正:
-      フィクスチャをprocess.cwd()配下(リポジトリと同一ドライブ保証)に作成するよう変更。次のpushで再確認する"
+    note: "4回目のCI実行(run 35118616709, job 104870355684)でついに 'gate (Node直接実行、bash不使用)'
+      ステップ(npm run
+      gate全4段階)がgreenになった。前回までの3件の修正(npx直接spawn回避・--test-concurrency=1・フィクスチャのド\
+      ライブレター問題)はすべて有効だったことを実機で確認。ただし後続の'install.mjs smoke test'ステップで新たな問題:
+      .github/workflows/conformance.yml側のバグで、'node install.mjs \"${{ runner.temp
+      }}/win-install-check\" --with-samples'
+      が対象ディレクトリを事前作成せずに渡していたため、install.mjs側の 'not a directory'
+      チェック(既存install.sh由来の正しい挙動)で弾かれた。install.mjs自体の不具合ではなくCIワークフロー側の記述ミス。修正:
+      mkdirステップを追加。次のpushで最終確認する"
     evidence: "2回のfail後にblockedへ自動エスカレーション、人間(pb10005)が確認しpush継続を明示的に許可。3回目のrun(351\
       18265490)でstep1/4,2/4はgreen、step3/4はAC-016のドライブレター問題のみ(root
       cause特定済み、tests/win-support.test.tsのフィクスチャ生成先をos.tmpdir()からprocess.cwd()配\
