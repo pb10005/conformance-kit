@@ -109,7 +109,8 @@ open_questions:
       mkdirステップを追加。次のpushで最終確認する"
     raised: 2026-09-16
     status: resolved
-    note: "mkdir修正をpush。加えて人間(pb10005)が2026-09-18に実機のWindows環境で独立に動作確認し『問題ない』と明示的に確認した"
+    note: "mkdir修正をpush。加えて人間(pb10005)が2026-09-18に実機のWindows環境で独立に動作確認し『問題ない』と明示的に確\
+      認した"
 
 # 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
 # then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
@@ -197,13 +198,13 @@ acceptance:
       が対象ディレクトリを事前作成せずに渡していたため、install.mjs側の 'not a directory'
       チェック(既存install.sh由来の正しい挙動)で弾かれた。install.mjs自体の不具合ではなくCIワークフロー側の記述ミス。修正:
       mkdirステップを追加。次のpushで最終確認する"
-    evidence: "4回目のCI実行(run 35118616709, job 104870355684)で 'gate
-      (Node直接実行、bash不使用)' ステップ(npm run gate全4段階: spec-lint/trace-matrix/node
-      --test/tsc)がgreenを実機確認済み。残る'install.mjs smoke
-      test'の失敗は.github/workflows/conformance.yml側のmkdir漏れ(install.mjs自体の不具合ではない\
-      )と特定し、f7c0878で修正済み。加えて人間(pb10005)が2026-09-18、実機のWindows環境で本機能の動作を独立に確認し『問\
-      題ない』と明示的に確認した。以上によりAC-014のthen節（bashを介さずWindows上でgate.tsの全ステップが動作する）は満たされ\
-      たと判断する"
+    evidence: "最終確認:
+      https://github.com/pb10005/conformance-kit/actions/runs/35241994049/job/1\
+      05272491395 (windows-selfcheck)。windows-latestランナー上で 'gate
+      (Node直接実行、bash不使用)' と 'install.mjs smoke test'
+      の両ステップが完全green(全ステップ成功、bash不使用)。required
+      statusのgateジョブ(ubuntu)も同時にgreen。加えて人間(pb10005)が2026-09-18に実機のWindows環境で独立\
+      に動作確認済み"
   - id: AC-015
     kind: functional
     given: "windows-selfcheckジョブが `continue-on-error: true` で定義された状態で"
