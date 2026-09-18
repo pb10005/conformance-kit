@@ -68,8 +68,12 @@ jobs:
       - name: sample spec lint (violations expected)
         run: npx tsx scripts/spec-lint.ts examples/with-samples/specs
 
-      - name: sample traceability (violations expected)
-        run: npx tsx scripts/trace-matrix.ts --root examples/with-samples --base samples-baseline
+      # trace-matrix.ts を生で呼ぶと「意図的な違反を検出できている」正常時でも
+      # exit 1 になり、CIが毎回赤く見えて何が壊れているのか判別できない。
+      # AC-006 のアサーション(期待した違反が全部出ていること)を通すことで、
+      # green=検出ロジック健全 / red=検出漏れ(退行) という正しい意味に直す。
+      - name: "sample traceability (AC-006: 意図的な違反が引き続き検出されることを確認)"
+        run: node --experimental-strip-types --test --test-concurrency=1 --test-name-pattern="AC-006" tests/kit-self-ci.test.ts
 
   # gate.ts/install.mjs がbashに依存せずWindowsのネイティブpowershell/cmd.exeでも動くことの証明(AC-014)。
   # 非必須ジョブとして扱い、branch protectionのrequired status checksには含めない(AC-015/AS-007)。
