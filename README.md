@@ -11,6 +11,8 @@ AIコーディングにおいて、(1) 要件を人間から過不足なく引�
 
 完了の定義を「テストが通った」から「**全受入基準が証拠付きで pass、または人間へ返却済み**」に移す。
 
+この`/spec → /verify → /reconcile → gate`ループは、いわゆる[loop engineering](https://www.langchain.com/blog/the-art-of-loop-engineering)（タスク＋検証グレーダー＋停止条件で構成する反復ループの設計）の一実装でもある。`verifier`/`scope-auditor`がagenticなグレーダー、`record-verdict.ts`の2回fail自動`blocked`が停止条件（termination logic）に相当する。
+
 ## 設計上の主張
 
 0. **人間に白紙を書かせない。** 「要件を漏れなく書いてください」は必ず失敗する。AIが先に全項目を推測で埋め、人間には差分を否定してもらう。書くコストより否定するコストの方が桁違いに低い。
