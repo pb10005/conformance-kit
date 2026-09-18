@@ -1,0 +1,140 @@
+# FEAT-005 — 要件の単一の正。実装・テスト・レビューはこれに従属する。
+#
+# 埋め方: 人間に質問する前に、AIが全項目を推測で埋め切ること。
+# 人間の仕事は白紙を埋めることではなく、埋まったものを否定・修正することにある。
+# 確信が持てない箇所は open_questions か assumptions に置き、空欄で残さない。
+id: FEAT-005
+title: "/reconcileで要件を変更した理由をdecisions.mdに記録する"
+status: frozen # draft -> (spec-lint --gate freeze) -> frozen
+
+# 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
+intent: "/reconcile が requirements.yaml
+  を変更する（AC追加・thenの具体化・out_of_scopeへの追記・assumptionsの確定）たびに、その理由がgit履歴以外に残らない。将来の\
+  セッションが 『なぜこのACはこう変わったのか』を要件ファイル自身から追跡できるよう、spec単位の decisions.md
+  に変更理由を記録する仕組みを追加する。record-verdict.ts の `--note`
+  は『そのACの最新の検証結果』を保持する目的で同一ACに対して上書きされる一時的な状態であり、decisions.mdは『要件そのものがいつ・なぜ変わった\
+  か』を追記専用で残す恒久ログであり、役割が異なる（前者は検証、後者は要件変更の記録）。"
+
+# 過剰実装を止める外周。draft を抜けるには最低1件必要。
+# 「やらないと決めたこと」であって「将来やること」ではない。
+out_of_scope:
+  - "「実装のバグ」（要件は変えず実装だけ直す）ケースへの記録要求。requirements.yaml自体が変わらないため対象外"
+  - "reconcile以外の経路（人間による直接編集）でのrequirements.yaml変更に対する記録の強制"
+  - "requirements.yamlの変更がdecisions.mdに記録されているかを機械的に検出・強制するCI検査（spec-lint.ts/tr\
+    ace-matrix.tsへの新規チェック項目の追加）。今回は記録用スクリプトの新設のみを行う"
+  - "複数specにまたがる意思決定の相互参照・横断検索機能"
+  - "decisions.mdの既存エントリを後から編集・削除する機能。record-verdict.tsのstatus書き換え制限と同様、追記のみとする"
+  - "複数のrecord-decision.ts呼び出しが同時に同一decisions.mdへ書き込むケースの競合制御（ファイルロックの導入）。recon\
+    cileは単一セッションが逐次実行する運用を前提とし、並行書き込みは考慮しない"
+  - "`--reason` / `--ref` の最大文字数制限。1行フォーマットが崩れるほど長い入力を渡さない運用上の注意で足りるとする"
+
+# 確信が持てないまま進める判断。コード側に @assumption AS-001 を残して回収可能にする。
+# owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
+assumptions:
+  - id: AS-015
+    statement: "decisions.md
+      はspec単位（`specs/<slug>/decisions.md`）に置く。requirements.yaml自体がspec単位で自己完結して\
+      いるため、変更理由も同じディレクトリにco-locateするのが自然。record-verdict.tsと対になる新しいスクリプト
+      `scripts/record-decision.ts` を新設する"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-18"
+  - id: AS-016
+    statement: "record-decision.ts の引数は `--spec <slug> --ref <任意の識別子> --reason
+      \"...\"` とする。`--ref`
+      はAC-XXX/AS-XXX形式に限定せず自由文字列として扱う（out_of_scopeへの追記のように、単一のAC/AS-IDに紐づかない変更理\
+      由も記録できるようにするため）が、`--reason`と同様に trim後が空文字なら受け付けない。`--ref` ・ `--reason`
+      のどちらかがtrim後空の場合はexit非0で記録しない。`--spec` の存在確認は
+      `specs/<slug>/requirements.yaml`
+      というファイル自体の存在確認で行う（ディレクトリの有無ではない。ディレクトリが存在してもrequirements.yamlが無ければ「存在しない」\
+      として扱う）"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-18"
+  - id: AS-017
+    statement: "decisions.md のエントリ形式はMarkdownの箇条書き1行（`- YYYY-MM-DD [ref] reason`、日付は
+      record-verdict.ts の `today` と同じ `YYYY-MM-DD`
+      形式）とし、常に末尾に追記する。既存エントリの書き換え・削除は行わない（追記専用ログ）。初回作成時のみ `# <slug> —
+      要件変更ログ` という見出し行を先頭に付与する（可読性のための付随実装で、エントリの内容・追記専用の性質には影響しない）"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-18"
+  - id: AS-018
+    statement: "`.claude/commands/reconcile.md`
+      の指示文を更新し、4分類のうち『要件の欠落』『スコープの誤り』『仮定の確定』（requirements.yamlを実際に編集する3分類）それぞれに\
+      、編集後 record-decision.ts で理由を記録する手順を追加する。『実装のバグ』（要件は触らない）分類には追加しない"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-18"
+
+# 人間の判断が要る未決事項。frozen にするには空にする（確定させるか assumptions へ降格）。
+open_questions: []
+
+# 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
+# then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
+acceptance:
+  - id: AC-024
+    kind: functional
+    given: "specs/<slug>/ にrequirements.yamlが存在するが、まだdecisions.mdが存在しない状態で"
+    when: "`npx tsx scripts/record-decision.ts --spec <slug> --ref AC-001 --reason
+      \"...\"` を実行する"
+    then: "specs/<slug>/decisions.md が新規作成され、日付・AC-001・reasonを含む1件目のエントリが書き込まれる"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: decisions.md新規作成・日付/ref/reasonの1件目書き込みを確認
+    evidence: tests/decision-log.test.ts:27-45
+  - id: AC-025
+    kind: functional
+    given: "specs/<slug>/decisions.md に既存のエントリが1件記録されている状態で"
+    when: "`record-decision.ts --spec <slug> --ref AC-002 --reason \"...\"`
+      で2件目を記録する"
+    then: "1件目のエントリは変わらないまま残り続け、2件目が末尾に追記される"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: 既存エントリ保持のまま2件目が末尾追記されることを順序込みで確認
+    evidence: tests/decision-log.test.ts:47-64
+  - id: AC-026
+    kind: functional
+    given: "`--reason` を指定しない・空文字・空白のみのいずれか、または `--ref` を指定しない・空文字・空白のみのいずれかを渡す状態で"
+    when: "record-decision.ts を実行する"
+    then: "exit codeが非0になり、decisions.mdは新規作成も既存への追記もされない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: reason未指定/空白、ref空白のいずれも非0終了かつdecisions.md未作成を確認
+    evidence: tests/decision-log.test.ts:66-87
+  - id: AC-027
+    kind: functional
+    given: "`--spec` に指定した `<slug>` について `specs/<slug>/requirements.yaml`
+      というファイルが存在しない（`specs/<slug>/`
+      ディレクトリ自体が無い場合と、ディレクトリはあるがrequirements.yamlだけ無い場合の両方を含む）状態で"
+    when: "record-decision.ts を実行する"
+    then: "exit codeが非0になり、エラーメッセージを出力してdecisions.mdを作成しない"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: ディレクトリ無し・reqファイルのみ無しの両方で非0終了・エラーメッセージ・decisions.md未作成を確認
+    evidence: tests/decision-log.test.ts:89-106
+  - id: AC-028
+    kind: functional
+    given: "`.claude/commands/reconcile.md` の内容を確認する状態で"
+    when: "4分類（実装のバグ／要件の欠落／スコープの誤り／仮定の確定）それぞれの記述を読む"
+    then: "『要件の欠落』『スコープの誤り』『仮定の確定』の3分類にはrequirements.yaml編集後にrecord-decision.tsで理由を\
+      記録する旨の記述を含み、『実装のバグ』（要件は触らない分類）にはその記述を含まない"
+    priority: should
+    verify: inspection
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: 要件の欠落/スコープの誤り/仮定の確定の3分類にrecord-decision.tsの記録手順を確認、実装のバグ分類には無いことを確認
+    evidence: .claude/commands/reconcile.md:11-17; tests/decision-log.test.ts:108-122
