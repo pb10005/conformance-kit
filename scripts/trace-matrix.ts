@@ -180,9 +180,14 @@ for (const dir of cfg.srcDirs) {
         for (const id of m[5].match(AC_RE) ?? []) (skipped ? skippedTitles : activeTitles).add(id);
       }
     }
+    const posixPath = toPosixPath(relative(root, f));
     files.push({
-      path: toPosixPath(relative(root, f)),
-      isTest: testRe.test(f),
+      path: posixPath,
+      // testFilePattern はパス区切りに "/" を使う前提(例: "(^|/)test_[^/]+\.py$")で書かれうるため、
+      // Windowsのバックスラッシュを含む生パス f ではなく正規化済みの posixPath に対して判定する
+      // （FEAT-004のWindows実機検証で、この判定漏れによりpytestのテストファイルが isTest=false に
+      // なる不具合として発見された。JSの既存パターンはファイル名末尾のみを見るため today まで顕在化しなかった）
+      isTest: testRe.test(posixPath),
       mentions: new Set(text.match(AC_RE) ?? []),
       activeTitles, skippedTitles, covers,
       assumptions: new Set([...text.matchAll(ASSUME_RE)].map((m) => m[1])),
