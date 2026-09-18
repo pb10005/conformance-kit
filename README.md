@@ -132,11 +132,6 @@ npx tsx scripts/record-verdict.ts --ac AC-002 --verdict fail --note "期限切�
 - `spec-challenger` の指摘品質は測っていない。誤検知が多ければ観点を絞る
 - 複数機能をまたぐ要件（機能Aの変更が機能BのACを壊す）の検出は未対応
 
-## 検討した外部サービス統合（見送り）
+## AI駆動開発トレンドの追従判断
 
-conformance-kitは現在 Claude Code 以外の外部サービスに依存しない構成を意図的に保っている。以下は導入を検討した上で見送った項目。再検討条件が満たされた場合のみ再評価する。
-
-- **Jev (TypeSafe AI)** — 見送り（検討日: 2026-09-18）
-  - 検討内容: `spec-lint.ts` の正規表現ベースの意味チェック（`AMBIGUOUS_TERM` / `UNOBSERVABLE_THEN` / `NO_FAILURE_PATH`）を、確率付きの高速判定モデル「Jev」で補強できないか
-  - 見送り理由: (1) 導入するとAPIキー管理・CIシークレット・`gate`の決定論性の毀損（外部ネットワーク依存の混入）・要件テキストが新興ベンダーへ渡る信頼境界の拡張が発生する。(2) 便益側も、同種の意味的チェックは既に `spec-challenger`/`verifier`/`scope-auditor`（いずれも既存依存のClaude Code経由）が多段でカバーしており限定的。(3) spec-lintは元々ミリ秒で完結する処理であり、外部API往復（数百ms）はこの箇所では高速化ではなく純増コストになる
-  - 再検討条件: (a) spec数・CI実行頻度が増え、LLMサブエージェントの往復コストが実際にボトルネック化したとき／(b) 正規表現ヒューリスティックの見逃しが実測で繰り返し問題化したとき／(c) TypeSafe AI側でSLA・Node公式SDK・価格の実績が積まれたとき
+conformance-kitは現在 Claude Code 以外の外部サービスに依存しない構成を意図的に保っている。AI駆動開発エコシステムの動向調査と、その追従可否判断（採用/見送り/却下と再検討条件）は `/trend-watch` で行い、`TREND_BACKLOG.md` に記録する（`specs/trend-watch/`、FEAT-007）。過去の判断はそちらを参照。
