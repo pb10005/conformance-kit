@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // @covers AC-012, AC-013
-// @assumption AS-006
 /**
  * gate.ts
  *

@@ -1,5 +1,4 @@
 # @covers AC-002, AC-005, AC-007, AC-009, AC-014, AC-015
-# @assumption AS-007
 name: conformance
 
 on:

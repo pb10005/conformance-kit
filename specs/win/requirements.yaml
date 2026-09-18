@@ -34,7 +34,7 @@ assumptions:
       `scripts.gate` を `tsx scripts/gate.ts` に更新する。install.sh のロジックは
       install.mjs（プレーンなNode ESM、追加依存なし）へ移植する。理由: installスクリプトは『npm
       iする前に実行される』という現状の起動順を壊さないため、tsxのインストールを前提にできない。両者ともbashを一切呼び出さない"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-24"
   - id: AS-007
@@ -42,7 +42,7 @@ assumptions:
       `npm run gate` （Node.js版、bash不使用）→ `node install.mjs <一時ディレクトリ>
       --with-samples` を実行し、いずれもbashを介さず成功することを確認する。ジョブは非必須（continue-on-error:
       true）とし、branch protectionのrequired status checksには追加しない"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-24"
   - id: AS-009
