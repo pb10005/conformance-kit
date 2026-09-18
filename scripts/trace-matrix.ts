@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016, AC-021, AC-023
+// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016, AC-021, AC-023, AC-029, AC-030, AC-031, AC-032, AC-033, AC-034, AC-035
 /**
  * trace-matrix.ts
  *
@@ -13,6 +13,7 @@
  * コメント・describe・skip/todo/xit は数えない。
  * `.py` ファイルは代わりに pytest 用の検出（トップレベル関数直後のdocstring）を使う。
  * 拡張子ごとに使う検出ロジックを完全に分けており、混在しない（FEAT-004 AC-021）。
+ * @playwright/test をimportしているJS/TSファイルは、describeタイトル由来のAC-ID検出を追加で行う（FEAT-006 AC-029〜035）。
  *
  * usage:
  *   npx tsx scripts/trace-matrix.ts [--json] [--strict] [--base origin/master] [--root <dir>]
@@ -29,6 +30,7 @@ import { execSync } from "node:child_process";
 import { parse } from "yaml";
 import { toPosixPath } from "./lib/posix-path.ts";
 import { extractPytestCoverage } from "./lib/pytest-detect.ts";
+import { extractPlaywrightCoverage, isPlaywrightFile } from "./lib/playwright-detect.ts";
 
 // ---------- types ----------
 type Level = "error" | "warn";
@@ -172,6 +174,10 @@ for (const dir of cfg.srcDirs) {
     const skippedTitles = new Set<string>();
     if (extname(f) === ".py") {
       const { active, skipped } = extractPytestCoverage(text);
+      for (const id of active) activeTitles.add(id);
+      for (const id of skipped) skippedTitles.add(id);
+    } else if (isPlaywrightFile(text)) {
+      const { active, skipped } = extractPlaywrightCoverage(text);
       for (const id of active) activeTitles.add(id);
       for (const id of skipped) skippedTitles.add(id);
     } else {
