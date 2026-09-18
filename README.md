@@ -125,7 +125,7 @@ npx tsx scripts/record-verdict.ts --ac AC-002 --verdict fail --note "期限切�
 
 - 逆方向トレースはファイル単位。`@covers AC-001` を持つファイルに無関係な関数を足しても検出しない。関数単位の検出は `scope-auditor`（LLM）の担当
 - カバー判定は `it()`/`test()` タイトルの文字列一致。Vitest/Jest/node:test は動作確認済みだが、Playwright の `test.describe` 内のタイトルも同じ正規表現で拾えるはずだが未検証
-- Python 等の非JS実装は `codeExtensions` を変えれば走査対象にはできるが、テストタイトル検出の正規表現（`TEST_CALL_RE`）は JS/TS の構文が前提
+- pytest（Python）は `codeExtensions` に `py` を含めれば検出対象になる（docstring方式、詳細は `specs/pytest-support/`）。それ以外の非JS/Pythonの言語・pytest以外のPythonテストフレームワーク（unittest単体、nose等）は未対応
 - `verifier` の「コードを編集しない」は Bash ツールを持つ以上プロンプト頼み。厳密にしたいなら `verifier` の `tools` から Bash を外し、テスト実行を呼び出し元で行って結果を渡す構成にする
 - `UNOBSERVABLE_THEN` は観測動詞の辞書一致。英語で書かれた要件はほぼ拾えない（辞書に英語が少ない）
 - 「最大3問」（`/spec` の質問数上限）はプロンプト制約であり機械的な強制ではない。守られているかは人間が見るしかない
