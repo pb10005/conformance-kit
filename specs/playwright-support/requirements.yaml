@@ -8,28 +8,31 @@ title: "Playwright（test.describe/test）のAC-IDカバー検出をtrace-matrix
 status: frozen # draft -> (spec-lint --gate freeze) -> frozen
 
 # 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
-intent: "Playwright（@playwright/test）のE2Eテストは、1つのACのthenが複数のユーザー操作ステップに分かれることが多く、Jest/Mochaのようにit()/test()\
-  1件=AC1件で書きにくい。実務上は test.describe(\"AC-XXX: ...\", () => { test(\"...\"); test(\"...\"); })\
-  のようにdescribeでシナリオをグループ化し、配下の複数test()で1つのACをまとめてカバーする書き方が自然になる。現状のtrace-matrix.tsは\
-  it()/test()のタイトルしか見ないため、この書き方をすると実際にはテストされているACが「未カバー」と誤検出される。加えて\
-  test.fixme()/test.describe.skip()などPlaywright固有のスキップ表現は現行のTEST_CALL_REに一致せず、スキップとしてすら検出されず\
-  完全に無視される（不可視化）。@playwright/testをimportしているファイルに限り、describeタイトルからのAC-ID検出とPlaywright固有の\
-  スキップ表現の検出をtrace-matrix.tsに追加する。"
+intent: "Playwright（@playwright/test）のE2Eテストは、1つのACのthenが複数のユーザー操作ステップに分かれることが多\
+  く、Jest/Mochaのようにit()/test()1件=AC1件で書きにくい。実務上は test.describe(\"AC-XXX: ...\",
+  () => { test(\"...\"); test(\"...\");
+  })のようにdescribeでシナリオをグループ化し、配下の複数test()で1つのACをまとめてカバーする書き方が自然になる。現状のtrace-matr\
+  ix.tsはit()/test()のタイトルしか見ないため、この書き方をすると実際にはテストされているACが「未カバー」と誤検出される。加えてtest.f\
+  ixme()/test.describe.skip()などPlaywright固有のスキップ表現は現行のTEST_CALL_REに一致せず、スキップとして\
+  すら検出されず完全に無視される（不可視化）。@playwright/testをimportしているファイルに限り、describeタイトルからのAC-ID\
+  検出とPlaywright固有のスキップ表現の検出をtrace-matrix.tsに追加する。"
 
 # 過剰実装を止める外周。draft を抜けるには最低1件必要。
 # 「やらないと決めたこと」であって「将来やること」ではない。
 out_of_scope:
   - "test.step()のタイトルからのAC-ID検出。粒度はtest.describe()とtest()の2階層までとし、ステップ単位は対象外とする"
-  - "2階層より深いdescribeの入れ子(test.describe内にさらにtest.describeがある場合)。今回は「1つのdescribe直下に複数のtest()」の形のみサポートする。\
-    2階層目以降のdescribeは無視し、その配下のtest()は従来通りtest()自身のタイトルでのみ判定する(誤カバーを避けるため検出を拡張しない)"
+  - "2階層より深いdescribeの入れ子(test.describe内にさらにtest.describeがある場合)。今回は「1つのdescribe直\
+    下に複数のtest()」の形のみサポートする。2階層目以降のdescribeは無視し、その配下のtest()は従来通りtest()自身のタイトルでのみ\
+    判定する(誤カバーを避けるため検出を拡張しない)"
   - "playwright.config.ts のprojects/fixture定義の検出・解析"
-  - "テンプレートリテラル・変数展開を含む動的なタイトル文字列(describe/testいずれも)からのAC-ID抽出。既存のJS/TS検出と同様、\
-    静的な文字列リテラルのみを対象とする"
+  - "テンプレートリテラル・変数展開を含む動的なタイトル文字列(describe/testいずれも)からのAC-ID抽出。既存のJS/TS検出と同様、静的\
+    な文字列リテラルのみを対象とする"
   - "@playwright/test以外のE2Eフレームワーク(例: Cypress, WebdriverIO)への対応"
   - "test.describe.only / test.only によるテストの絞り込み実行そのものへの言及・警告(カバー判定への影響のみを扱う)"
-  - "@playwright/testのサブパスからのimport(例: `@playwright/test/fixtures`のような別ファイルパス経由)やre-export経由の\
-    間接importの検出。AS-019の完全一致パターンに一致しないファイルは、@playwright/testをimportしていないファイルと同様に扱う\
-    （describe検出は適用されず、既存のit()/test()検出のみが適用される）"
+  - "@playwright/testのサブパスからのimport(例:
+    `@playwright/test/fixtures`のような別ファイルパス経由)やre-export経由の間接importの検出。AS-019の完全\
+    一致パターンに一致しないファイルは、@playwright/testをimportしていないファイルと同様に扱う（describe検出は適用されず、既\
+    存のit()/test()検出のみが適用される）"
 
 # 確信が持てないまま進める判断。コード側に @assumption AS-001 を残して回収可能にする。
 # owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
@@ -37,40 +40,43 @@ assumptions:
   - id: AS-019
     statement: "検出対象は @playwright/test をimportしている .spec.ts/.test.ts
       ファイルに限定する。判定はソース中に正規表現で `from\\s+[\"']@playwright/test[\"']`
-      が存在するかどうかで行う（importの別名・`require()`記法・re-export経由の間接importは対象外とする）。この判定が無いと、\
-      同じ .spec.ts 拡張子を使う既存のJest/Mocha向けファイルでもdescribeタイトルが誤ってカバーとして数えられてしまい、CLAUDE.md\
-      の既存規約（describeは数えない）が壊れる"
+      が存在するかどうかで行う（importの別名・`require()`記法・re-export経由の間接importは対象外とする）。この判定が無い\
+      と、同じ .spec.ts
+      拡張子を使う既存のJest/Mocha向けファイルでもdescribeタイトルが誤ってカバーとして数えられてしまい、CLAUDE.mdの既存規約（\
+      describeは数えない）が壊れる"
     status: assumed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-020
-    statement: "test.describe(\"AC-XXX: ...\", () => {...}) のタイトルでのAC-ID検出は、\
-      直下（1階層）のtest()呼び出しが1件以上あり、かつそのうち少なくとも1件が有効(非skip)である場合にのみ「カバー」とする。\
-      直下にtest()が1件も無い空のdescribeブロックはカバーとして扱わない"
+    statement: "test.describe(\"AC-XXX: ...\", () => {...})
+      のタイトルでのAC-ID検出は、直下（1階層）のtest()呼び出しが1件以上あり、かつそのうち少なくとも1件が有効(非skip)である場合にのみ\
+      「カバー」とする。直下にtest()が1件も無い空のdescribeブロックはカバーとして扱わない"
     status: assumed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-021
     statement: "test.describe.skip(...) / test.describe.fixme(...)
-      でラップされたブロックは、直下のtest()個々にskip修飾が無くても全てスキップ扱いにする（「直下」はAS-020と同じ1階層の意味で\
-      統一する。2階層目以降のdescribeはout_of_scopeにより解析対象外のため、この伝播ルールも1階層目にのみ適用される）。逆に
-      test.describe.only(...) は実行対象の絞り込みであってスキップではないため、カバー判定には影響を与えない（通常のdescribeと同じ扱い）"
+      でラップされたブロックは、直下のtest()個々にskip修飾が無くても全てスキップ扱いにする（「直下」はAS-020と同じ1階層の意味で統一する\
+      。2階層目以降のdescribeはout_of_scopeにより解析対象外のため、この伝播ルールも1階層目にのみ適用される）。逆に
+      test.describe.only(...)
+      は実行対象の絞り込みであってスキップではないため、カバー判定には影響を与えない（通常のdescribeと同じ扱い）"
     status: assumed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-022
     statement: "現行の TEST_CALL_RE は modifier を `(only|skip|todo|each|concurrent)`
-      に限定しており、Playwright固有の `test.fixme(...)` / `test.fail(...)` はこの一覧に無いため、\
-      正規表現全体がマッチに失敗し完全に無視されている（activeでもskippedでもなく、UNCOVERED_ACにすらならない不可視化のバグ）。\
-      `fixme` はskip相当として検出対象に追加する。`fail`（失敗することを期待して実行はする)は実行される点でskipと異なるため、\
-      今回はactive（有効なカバー）として扱う"
+      に限定しており、Playwright固有の `test.fixme(...)` / `test.fail(...)`
+      はこの一覧に無いため、正規表現全体がマッチに失敗し完全に無視されている（activeでもskippedでもなく、UNCOVERED_ACにすらなら\
+      ない不可視化のバグ）。`fixme`
+      はskip相当として検出対象に追加する。`fail`（失敗することを期待して実行はする)は実行される点でskipと異なるため、今回はactive（\
+      有効なカバー）として扱う"
     status: assumed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-023
-    statement: "同一ファイル内でdescribeタイトルとtest()タイトルの両方にAC-IDが書かれている場合(同一IDでも別IDでも)、\
-      両方とも独立してカバー判定に加える(和集合)。describe側とtest()側で優先順位や排他は設けない。これは既存のJS/TS検出\
-      (test()のみ)にdescribe検出を追加する形の拡張であり、既存のtest()単位の判定に一切変更を加えないための最も単純な合成方法である"
+    statement: "同一ファイル内でdescribeタイトルとtest()タイトルの両方にAC-IDが書かれている場合(同一IDでも別IDでも)、両方とも\
+      独立してカバー判定に加える(和集合)。describe側とtest()側で優先順位や排他は設けない。これは既存のJS/TS検出(test()のみ)\
+      にdescribe検出を追加する形の拡張であり、既存のtest()単位の判定に一切変更を加えないための最も単純な合成方法である"
     status: assumed
     owner: pb10005
     resolve_by: "2026-09-25"
@@ -88,76 +94,118 @@ open_questions: []
 acceptance:
   - id: AC-029
     kind: functional
-    given: "@playwright/testをimportしている.spec.tsファイルに、test.describe(\"AC-029:
-      ...\", () => { test(\"...\", async ({ page }) => {...}); }) のように、describeタイトルにAC-IDを\
-      含み、配下に有効(非skip)なtest()が1件以上ある状態で"
+    given: "@playwright/testをimportしている.spec.tsファイルに、test.describe(\"AC-029: ...\",
+      () => { test(\"...\", async ({ page }) => {...}); })
+      のように、describeタイトルにAC-IDを含み、配下に有効(非skip)なtest()が1件以上ある状態で"
     when: "trace-matrix.tsを実行する"
     then: "AC-029についてUNCOVERED_ACは出力されず、coverage一覧にこのファイルが含まれる"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-09-18
+    note: describeタイトルにAC-029、直下に有効なtest()1件がある入力でextractPlaywrightCoverageを実行し、active.has('AC-029')=true
+      かつ skipped.size=0
+      を確認。trace-matrix.tsはactiveTitlesからcoverageを構築する共通ロジック(scripts/trace-matrix.ts:216-219)を使うため、UNCOVERED_AC非出力とcoverage一覧への計上は同ロジックで担保される。
+    evidence: tests/playwright-support.test.ts:26-38 (node --test pass)
   - id: AC-030
     kind: functional
-    given: "test.describe.skip(\"AC-030: ...\", () => { test(\"...\", ...) }) のように、\
-      describe自体が.skip修飾されている状態で"
+    given: "test.describe.skip(\"AC-030: ...\", () => { test(\"...\", ...) })
+      のように、describe自体が.skip修飾されている状態で"
     when: "trace-matrix.tsを実行する"
-    then: "配下のtest()個々にskip修飾が無くても、AC-030はSKIPPED_TESTとしてAC-ID単位で1回出力される（配下のtest()の数に\
-      関わらず重複しない。record-verdict.tsの対象ACループがAC-ID単位で1回だけ判定する既存実装に合わせる）。有効なカバーとしては計上されない"
+    then: "配下のtest()個々にskip修飾が無くても、AC-030はSKIPPED_TESTとしてAC-ID単位で1回出力される（配下のtest()の\
+      数に関わらず重複しない。record-verdict.tsの対象ACループがAC-ID単位で1回だけ判定する既存実装に合わせる）。有効なカバーとし\
+      ては計上されない"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-09-18
+    note: test.describe.skip /
+      test.describe.fixmeの両方で、直下test()にskip修飾が無くてもskipped.has=true かつ
+      active.has=falseを確認。SKIPPED_TESTはtrace-matrix.ts側でAC-ID単位ループ(scripts/trace-matrix.ts:222-240)かつSet集合ベースのため、test()の件数に関わらず1回しか出力されない構造になっている。
+    evidence: tests/playwright-support.test.ts:40-64 (node --test pass)
   - id: AC-031
     kind: functional
-    given: "test.fixme(\"AC-031: ...\", async ({ page }) => {...}) のように、test.fixmeで書か\
-      れたテストが存在する状態で"
+    given: "test.fixme(\"AC-031: ...\", async ({ page }) => {...})
+      のように、test.fixmeで書かれたテストが存在する状態で"
     when: "trace-matrix.tsを実行する"
-    then: "このタイトルはSKIPPED_TESTとして出力される（現状のように正規表現に一致せず完全に無視され、UNCOVERED_ACにすらならないのではなく）"
+    then: "このタイトルはSKIPPED_TESTとして出力される（現状のように正規表現に一致せず完全に無視され、UNCOVERED_ACにすらならないので\
+      はなく）"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-09-18
+    note: "test.fixme('AC-031:
+      ...')が従来のTEST_CALL_REでは一致せず不可視化されていたのに対し、拡張後のPW_TEST_CALL_RE(scripts/lib/\
+      playwright-detect.ts:24-25)はfixmeをmodifierとして認識しskipped扱いにすることをextractPla\
+      ywrightCoverage経由で確認。skipped.has('AC-031')=true,
+      active.has=falseの両方を検証済み。"
+    evidence: tests/playwright-support.test.ts:66-71 (node --test pass)
   - id: AC-032
     kind: functional
-    given: "@playwright/testをimportしていない.spec.tsファイル(例: Jest/Mocha)で、describeタイトルにAC-ID\
-      が書かれているが対応するit()/test()のタイトルには書かれていない状態で"
+    given: "@playwright/testをimportしていない.spec.tsファイル(例:
+      Jest/Mocha)で、describeタイトルにAC-IDが書かれているが対応するit()/test()のタイトルには書かれていない状態で"
     when: "trace-matrix.tsを実行する"
-    then: "従来通りdescribeタイトルはカバーとして数えられず、UNCOVERED_ACとして出力され続ける（@playwright/testを\
-      importしないファイルの既存挙動に影響を与えない）"
+    then: "従来通りdescribeタイトルはカバーとして数えられず、UNCOVERED_ACとして出力され続ける（@playwright/testをimp\
+      ortしないファイルの既存挙動に影響を与えない）"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-09-18
+    note: "@playwright/testをimportしないファイルにdescribeタイトルのみAC-IDがある一時リポジトリを作り、trace-ma\
+      trix.ts
+      --jsonを実サブプロセスとして実行してcoverage['AC-001']が空配列であることを確認。isPlaywrightFile()による\
+      ゲーティング(scripts/trace-matrix.ts:179)が正しく機能し、非Playwrightファイルは従来のTEST_CALL_R\
+      Eのみで判定されることをエンドツーエンドで検証。"
+    evidence: tests/playwright-support.test.ts:107-155 (node --test pass,
+      実際にtrace-matrix.tsをCLI実行)
   - id: AC-033
     kind: functional
-    given: "test.describe(\"AC-033: ...\", () => {}) のように、AC-IDを含むdescribeタイトルの配下が空の（test()\
-      を1件も持たない）状態で"
+    given: "test.describe(\"AC-033: ...\", () => {})
+      のように、AC-IDを含むdescribeタイトルの配下が空の（test()を1件も持たない）状態で"
     when: "trace-matrix.tsを実行する"
     then: "AC-033はカバーとして計上されず、UNCOVERED_ACとして出力される"
     priority: should
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-09-18
+    note: "配下にtest()が1件も無いtest.describe('AC-033: ...', () =>
+      {})に対し、AS-020のhasActiveChild判定(scripts/lib/playwright-detect.ts:83-90)により\
+      active/skipped両方に入らないことを確認。coverageに計上されないためAC-033はUNCOVERED_ACとして出力され続ける\
+      。"
+    evidence: tests/playwright-support.test.ts:73-78 (node --test pass)
   - id: AC-034
     kind: functional
-    given: "test.fail(\"AC-034: ...\", async ({ page }) => {...}) のように、test.failで書かれた\
-      （失敗することを期待して実行される）テストが存在する状態で"
+    given: "test.fail(\"AC-034: ...\", async ({ page }) => {...})
+      のように、test.failで書かれた（失敗することを期待して実行される）テストが存在する状態で"
     when: "trace-matrix.tsを実行する"
-    then: "このタイトルは有効なカバー(activeTitles)として検出され、AC-034についてUNCOVERED_ACもSKIPPED_TESTも出力されない\
-      （test.fixmeとは異なり実行はされるため）"
+    then: "このタイトルは有効なカバー(activeTitles)として検出され、AC-034についてUNCOVERED_ACもSKIPPED_TESTも出\
+      力されない（test.fixmeとは異なり実行はされるため）"
     priority: should
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-09-18
+    note: "test.fail('AC-034: ...')がisTestCallSkipped()でfalse判定されactive.has=true,
+      skipped.has=falseとなることを確認。fixmeとは異なりUNCOVERED_ACにもSKIPPED_TESTにもならず有効なカバー\
+      として扱われる。"
+    evidence: tests/playwright-support.test.ts:80-85 (node --test pass)
   - id: AC-035
     kind: functional
-    given: "@playwright/testをimportしているファイルで、test.describe(\"AC-035: ...\", () => { test(\"AC-9\
-      36: ...\", ...) }) のように、describeタイトルとtest()タイトルに異なるAC-IDがそれぞれ書かれている状態で"
+    given: "@playwright/testをimportしているファイルで、test.describe(\"AC-035: ...\", () => {
+      test(\"AC-936: ...\", ...) })
+      のように、describeタイトルとtest()タイトルに異なるAC-IDがそれぞれ書かれている状態で"
     when: "trace-matrix.tsを実行する"
-    then: "AC-035・AC-936の両方が独立してカバーとして計上され、どちらについてもUNCOVERED_ACは出力されない（describe側とtest()\
-      側のどちらか一方を優先して他方を無視することはしない）"
+    then: "AC-035・AC-936の両方が独立してカバーとして計上され、どちらについてもUNCOVERED_ACは出力されない（describe側とte\
+      st()側のどちらか一方を優先して他方を無視することはしない）"
     priority: should
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-09-18
+    note: describeタイトル(AC-035)とtest()タイトル(AC-024、実在ACを流用)に異なるAC-IDを書いた入力で、両方が独立してactiveに入ることを確認(和集合、排他無し)。AS-023の要求通り。
+    evidence: tests/playwright-support.test.ts:87-100 (node --test pass)

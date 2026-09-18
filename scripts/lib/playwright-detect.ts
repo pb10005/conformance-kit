@@ -43,20 +43,42 @@ function isTestCallSkipped(xPrefix: string, modifier: string | undefined): boole
   return xPrefix === "x" || modifier === "skip" || modifier === "todo" || modifier === "fixme";
 }
 
-// test.describe(...) のコールバック本体（最初の "{" から対応する "}" まで）を抽出する。
-// 文字列・テンプレートリテラル内の波括弧までは考慮しない、pytest-detect.tsと同水準の正規表現ベースの近似。
-function extractDescribeBody(text: string, fromIndex: number): string | null {
-  const braceStart = text.indexOf("{", fromIndex);
-  if (braceStart === -1) return null;
+// "{" から対応する "}" までを抽出する。文字列・テンプレートリテラル内の波括弧までは考慮しない、
+// pytest-detect.tsと同水準の正規表現ベースの近似。
+function extractBraceBlock(text: string, braceStart: number): { body: string; endIndex: number } | null {
   let depth = 0;
   for (let i = braceStart; i < text.length; i++) {
     if (text[i] === "{") depth++;
     else if (text[i] === "}") {
       depth--;
-      if (depth === 0) return text.slice(braceStart + 1, i);
+      if (depth === 0) return { body: text.slice(braceStart + 1, i), endIndex: i + 1 };
     }
   }
   return null;
+}
+
+function extractDescribeBody(text: string, fromIndex: number): string | null {
+  const braceStart = text.indexOf("{", fromIndex);
+  if (braceStart === -1) return null;
+  return extractBraceBlock(text, braceStart)?.body ?? null;
+}
+
+// out_of_scope: 2階層より深いdescribeの入れ子は無視し、その配下のtest()は従来通りtest()自身のタイトルでの
+// み判定する。ここで body 全体をそのまま test() 検索の対象にすると、2階層目以降のdescribeに包まれたtest()
+// まで「直下」として誤検出してしまう（例: 直接のtest()を持たないdescribeでも、孫にtest()があるとactiveに
+// なってしまう）。ネストしたdescribeブロックを丸ごと除去し、直下のtest()のみを残す。
+function directChildrenOnly(body: string): string {
+  let out = "";
+  let cursor = 0;
+  for (const m of body.matchAll(DESCRIBE_HEADER_RE)) {
+    if (m.index < cursor) continue;
+    const braceStart = body.indexOf("{", m.index + m[0].length);
+    const nested = braceStart === -1 ? null : extractBraceBlock(body, braceStart);
+    out += body.slice(cursor, m.index);
+    cursor = nested !== null ? nested.endIndex : m.index + m[0].length;
+  }
+  out += body.slice(cursor);
+  return out;
 }
 
 export function extractPlaywrightCoverage(text: string): PlaywrightCoverage {
@@ -83,8 +105,9 @@ export function extractPlaywrightCoverage(text: string): PlaywrightCoverage {
     // 直下（1階層）に有効(非skip)なtest()が1件以上ある場合にのみカバーとして扱う。
     // @assumption AS-020
     const body = extractDescribeBody(text, m.index + m[0].length);
+    const directBody = body !== null ? directChildrenOnly(body) : null;
     const hasActiveChild =
-      body !== null && [...body.matchAll(PW_TEST_CALL_RE)].some((cm) => !isTestCallSkipped(cm[1], cm[3]));
+      directBody !== null && [...directBody.matchAll(PW_TEST_CALL_RE)].some((cm) => !isTestCallSkipped(cm[1], cm[3]));
     // describe側とtest()側のAC-IDは優先順位を付けず独立して和集合で加える。
     // @assumption AS-023
     if (hasActiveChild) for (const id of ids) active.add(id);

@@ -20,7 +20,13 @@ function run(args: string[]): { code: number; output: string } {
   }
 }
 
-const IMPORT_LINE = 'import { test, expect } from "@playwright/test";';
+// "@playwright" と "/test" を連結で分断している。連結せず1つの文字列にすると、このテストファイル自身の
+// ソースが trace-matrix.ts の isPlaywrightFile() 判定に誤って一致してしまう（import文の "from" +
+// 引用符 + パッケージ名 + 引用符という並びが、このファイル自身の生テキストにそのまま現れてしまうため）。
+// 誤って一致すると、このファイル自身がPlaywrightファイルとしてフルスキャンされ、以下の各フィクスチャ内の
+// describe/testタイトルが実カバーとして拾われ、他specの実ACが「カバー済み」に漏れ込む
+// （scope-auditorで発見された副作用）
+const IMPORT_LINE = 'import { test, expect } from "@playwright' + '/test";';
 
 describe("Playwright対応 (FEAT-006)", () => {
   it("AC-029: describeタイトルのAC-IDは、直下に有効なtest()が1件以上あればカバーとして検出される", () => {
@@ -77,6 +83,21 @@ describe("Playwright対応 (FEAT-006)", () => {
     assert.ok(!skipped.has("AC-033"), "空のdescribeなのにskippedに入ってしまっている（UNCOVERED_ACにならない）");
   });
 
+  it("直下にtest()を持たないdescribeは、孫（2階層目以降のdescribe配下）にtest()があってもカバーとして扱われない (out_of_scope 2階層制限, AS-020)", () => {
+    // AC-025/AC-026は他specの既存の実在ACを流用している（架空のIDだとDANGLING_ACとして検出されるため）
+    const text = [
+      IMPORT_LINE,
+      'test.describe("AC-025: 直下にtest()を持たない外側", () => {',
+      '  test.describe("AC-026: 内側", () => {',
+      '    test("何かする", async ({ page }) => {});',
+      "  });",
+      "});",
+    ].join("\n");
+    const { active } = extractPlaywrightCoverage(text);
+    assert.ok(!active.has("AC-025"), "2階層目のtest()が1階層目のactive判定に漏れ込んでしまっている");
+    assert.ok(active.has("AC-026"), "2階層目のdescribe自身は、自分の直下のtest()で正しくカバーされているはず");
+  });
+
   it("AC-034: test.fail()はactiveとして検出される（実行される点でfixmeと異なる）", () => {
     const text = [IMPORT_LINE, 'test.fail("AC-034: 既知のバグで失敗する", async ({ page }) => {});'].join("\n");
     const { active, skipped } = extractPlaywrightCoverage(text);
@@ -85,13 +106,16 @@ describe("Playwright対応 (FEAT-006)", () => {
   });
 
   it("AC-035: describeタイトルとtest()タイトルに別々のAC-IDがあれば両方独立してカバーになる", () => {
-    // AC-024はこのファイルとは無関係な既存の実在ACを流用している（架空のIDを書くと、このテストファイル
-    // 自身のソースが非PlaywrightファイルとしてTEST_CALL_REに誤爆した際にDANGLING_ACとして検出されてしまう
-    // ため。pytest-support.test.tsで見つかったのと同種の副作用を避ける）
+    // AC-024はこのファイルとは無関係な既存の実在ACを流用している（架空のIDだと、AC-IDの生テキスト出現だけで
+    // 検出されるDANGLING_ACに引っかかるため）。加えて次の行は呼び出し関数名の直後の丸括弧を連結で分断し、この
+    // 行自身が非PlaywrightファイルとしてのTEST_CALL_REスキャンに誤爆しないようにしている（分断しないと、
+    // このフィクスチャがAC-024の実カバーとして誤登録され、decision-log側の本来のテストが壊れても検出できなく
+    // なる「マスキング」を招く。scope-auditorが発見した副作用。このコメント自身にも同じ連続文字列を書かない
+    // よう注意すること — 過去に同種のコメントが自己マッチを再発させた前例がある）
     const text = [
       IMPORT_LINE,
       'test.describe("AC-035: 一覧画面", () => {',
-      '  test("AC-024: 検索結果が絞り込まれる", async ({ page }) => {});',
+      "  " + "test" + '("AC-024: 検索結果が絞り込まれる", async ({ page }) => {});',
       "});",
     ].join("\n");
     const { active } = extractPlaywrightCoverage(text);
