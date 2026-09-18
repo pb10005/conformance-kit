@@ -1,0 +1,211 @@
+# FEAT-007 — 要件の単一の正。実装・テスト・レビューはこれに従属する。
+#
+# 埋め方: 人間に質問する前に、AIが全項目を推測で埋め切ること。
+# 人間の仕事は白紙を埋めることではなく、埋まったものを否定・修正することにある。
+# 確信が持てない箇所は open_questions か assumptions に置き、空欄で残さない。
+id: FEAT-007
+title: "AI駆動開発トレンドの監視・追従判断を記録する仕組みを追加する"
+status: frozen # draft -> (spec-lint --gate freeze) -> frozen
+
+# 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
+intent: "conformance-kit自身の有効性は、AI駆動開発のエコシステム（エージェント型コーディングモデル、分類・判定特化モデル、spec駆\
+  動開発の周辺ツール）の変化に追従できるかに依存する。しかし現状、その追従判断は完全にアドホックで、たまたま人間が会話で話題に出した時にしか行われず、判断結\
+  果（採用/見送り/却下と再検討条件）の記録方法も都度その場で決めていた（直近のJev評価はREADME.mdに手動でセクションを追記する形になった）。この\
+  ため (1) 調査の実施自体が漏れる可能性がある、(2)
+  記録の形式が毎回ばらつき、過去の判断根拠を後から一貫して参照できない、という2つの問題がある。本機能は、この『調査して判断し記録する』プロセスを繰り返し可\
+  能な形に整える:
+  人間/セッションが明示的に起動するコマンドと、record-decision.tsと対になる決定論的な記録スクリプトを追加し、判断の記録先をプロジェクト横\
+  断のバックログ1ファイルに統一する。"
+
+# 過剰実装を止める外周。draft を抜けるには最低1件必要。
+# 「やらないと決めたこと」であって「将来やること」ではない。
+out_of_scope:
+  - "スケジュール実行・定期バックグラウンド実行(例: cron)。conformance-kitはClaude
+    Code以外の外部サービス・常駐プロセスに依存しない方針を保っており、この仕組み自体がその方針を破ってはならない。あくまで人間/セッションが明示的に起\
+    動するコマンドとする"
+  - "AI業界全般のニュース監視。調査対象はconformance-kit自身のツール領域（spec駆動開発・エージェント検証・分類/判定特化モデル・co\
+    ding agentエコシステム）に関連するものに限定し、無制限な情報収集は行わない"
+  - "発見した技術の自動導入・自動実装。判断は必ず人間の承認を経る（Jev評価と同様の運用を踏襲する）"
+  - "再検討条件が実際に満たされたかどうかを機械的に自動検知する仕組み（例:
+    対象ベンダーのSLA実績を定期監視するcron）。条件が満たされたかの確認は、次回このコマンドを手動で起動した際に人間/セッションが判断する"
+  - "specs/<slug>/decisions.md（FEAT-005、reconcileによる要件変更理由の記録）との統合・自動連携。使い分けの基準\
+    はAS-029で定義する具体的な判定ルールに従う（あちらはspec単位の要件変更理由、本機能はspecに紐づかないプロジェクト横断の技術選定判断）"
+  - "過去のバックログエントリの編集・削除機能。record-decision.tsと同様、追記専用ログとする"
+  - "TREND_BACKLOG.mdが肥大化した場合のローテーション・アーカイブ・分割。record-decision.tsのdecisions.md同\
+    様、無制限追記を前提とする"
+  - "複数のrecord-trend.ts呼び出しが同時に同一TREND_BACKLOG.mdへ書き込むケースの競合制御（ファイルロックの導入）。reco\
+    rd-decision.tsと同様、単一セッションが逐次実行する運用を前提とし、並行書き込みは考慮しない"
+  - "record-trend.tsをCLIから人間の承認を経ずに直接実行することを技術的に禁止する仕組み。AC-041が定める『承認を得てから呼ぶ』手順\
+    はコマンド定義文面上の運用規約であり、record-trend.ts自体は他のrecord-*.tsスクリプト同様、承認の有無を検証しない（recor\
+    d-decision.tsが人間の承認を技術的に強制していないのと同じ前提）"
+
+# 確信が持てないまま進める判断。コード側に @assumption AS-001 を残して回収可能にする。
+# owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
+assumptions:
+  - id: AS-024
+    statement: "記録先はプロジェクトルート直下の新規ファイル `TREND_BACKLOG.md`
+      とし、spec単位ではなくプロジェクト全体で1つに統一する。今回のJev評価のように、どの既存specにも属さない横断的な技術選定判断を扱うため、\
+      specs/<slug>/decisions.md（spec単位）とは別のトップレベルファイルが適切"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-09-25"
+  - id: AS-025
+    statement: "記録スクリプトは `scripts/record-trend.ts` とし、`scripts/record-decision.ts`
+      と対になる構成にする。引数は `--tech <名称> --decision adopt|defer|reject --reason \"...\"
+      [--revisit \"...\"]`。`--tech`/`--reason` はtrim後空なら受け付けない。`--decision`
+      は3値以外を拒否する。`--revisit` は `--decision` が `defer`/`reject`
+      の場合は必須（trim後空なら受け付けない）。`adopt`
+      の場合は省略可能（採用は取り消し前提ではないため必須にはしない）だが、指定されていればdefer/rejectと同様にエントリへ記録する（adop\
+      tだからといって無視・拒否はしない）。省略した場合、エントリ上で『再検討条件が未設定である』ことが後から判別できるよう、固定文言（例:
+      `(再検討条件なし)`）を record-trend.ts
+      側でrevisit欄に補って記録する。実際に再検討条件を再確認する自動監視は持たない（out_of_scope）が、記録フォーマット上はrevis\
+      it欄が常に埋まっている状態を保つ"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-09-25"
+  - id: AS-026
+    statement: "TREND_BACKLOG.md のエントリ形式は record-decision.ts の decisions.md
+      と同様、Markdown箇条書き1行を常に末尾に追記する追記専用ログとする。初回作成時のみ見出し行を先頭に付与する"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-09-25"
+  - id: AS-027
+    statement: "調査を起動するコマンドは `.claude/commands/trend-watch.md`
+      とする。WebSearch/WebFetchで情報収集し、発見事項を人間に提示して承認を得てから `record-trend.ts`
+      を呼ぶ手順を記述する。調査プロセス自体（何を検索しどう評価するか）はLLMの判断に委ねるため機械テストの対象外とし、`record-trend.t\
+      s` の記録動作のみをACの対象とする（`.claude/commands/reconcile.md` と `record-decision.ts`
+      の関係と同じ構成）"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-09-25"
+  - id: AS-028
+    statement: "既存のJev評価（README.md「検討した外部サービス統合（見送り）」セクション）は、このFEAT実装後に
+      `record-trend.ts` 経由で `TREND_BACKLOG.md`
+      へ遡及的に移設し、README側の当該セクションは本バックログへの案内に置き換える。移設作業は本specの受入基準には含めない（別途の作業として実\
+      施する）"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-09-25"
+  - id: AS-029
+    statement: "TREND_BACKLOG.md（本機能）と specs/<slug>/decisions.md（FEAT-005）の使い分け基準:
+      判断が特定1つのspecのrequirements.yaml（AC/AS/out_of_scope）の変更を伴う場合は decisions.md
+      （どのspecの変更かが自明なため）。判断がconformance-kit自身のツール構成（例:
+      外部サービス・依存パッケージ・モデルの採用可否）に関するもので、特定のspecの要件変更を伴わない、またはどのspecにも一意に属さない場合は
+      TREND_BACKLOG.md に記録する。両方に該当する場合（例:
+      あるspec実装のためにAIモデルを採用し、かつそのspecのACも追加する場合）は両方に記録してよい（重複記録を禁止しない）"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-09-25"
+
+# 人間の判断が要る未決事項。frozen にするには空にする（確定させるか assumptions へ降格）。
+open_questions: []
+#  - id: OQ-001
+#    question: 未登録アドレスへの応答を200に統一してよいか（列挙攻撃対策 vs UX）
+#    default: 200に統一する
+#    raised: "YYYY-MM-DD"
+#    status: open # open | resolved
+
+# 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
+# then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
+acceptance:
+  - id: AC-036
+    kind: functional
+    given: "TREND_BACKLOG.md がまだ存在しない状態で"
+    when: "`npx tsx scripts/record-trend.ts --tech \"Jev (TypeSafe AI)\" --decision
+      defer --reason \"...\" --revisit \"...\"` を実行する"
+    then: "TREND_BACKLOG.md が新規作成され、日付・技術名・decision・reason・revisitを含む1件目のエントリが書き込まれる"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: 初回実行でTREND_BACKLOG.md新規作成、日付/技術名/decision/reason/revisitの全項目含有を確認（全アサーション実行済み・テスト成功）
+    evidence: tests/trend-watch.test.ts:27-47
+  - id: AC-037
+    kind: functional
+    given: "TREND_BACKLOG.md に既存のエントリが1件記録されている状態で"
+    when: "別の技術について2件目を記録する"
+    then: "1件目のエントリは変わらないまま残り続け、2件目が末尾に追記される"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: 1件目のreason文字列が残存し、2件目が末尾（indexが後）に追記されることを確認
+    evidence: tests/trend-watch.test.ts:49-63
+  - id: AC-038
+    kind: functional
+    given: "`--tech` または `--reason` を指定しない・空文字・空白のみのいずれかで渡す状態で"
+    when: "record-trend.ts を実行する"
+    then: "exit codeが非0になり、TREND_BACKLOG.mdは新規作成も既存への追記もされない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    evidence: tests/trend-watch.test.ts:65-84
+  - id: AC-039
+    kind: functional
+    given: "`--decision` に `adopt`/`defer`/`reject` のいずれでもない値（未指定・誤字を含む）を渡す状態で"
+    when: "record-trend.ts を実行する"
+    then: "exit codeが非0になり、TREND_BACKLOG.mdは新規作成も既存への追記もされない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    evidence: tests/trend-watch.test.ts:86-101
+  - id: AC-040
+    kind: functional
+    given: "`--decision` が `defer` または `reject` で、`--revisit`
+      を指定しない・空文字・空白のみのいずれかで渡す状態で"
+    when: "record-trend.ts を実行する"
+    then: "exit codeが非0になり、TREND_BACKLOG.mdは新規作成も既存への追記もされない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: decision=defer/reject時に--revisit未指定/空白の2パターンでexit非0かつTREND_BACKLOG.md未作成を確認
+    evidence: tests/trend-watch.test.ts:103-118
+  - id: AC-042
+    kind: functional
+    given: "`--decision adopt` で `--revisit` を省略する状態で"
+    when: "record-trend.ts を実行する"
+    then: "exit code 0で正常に記録されるが、書き込まれるエントリのrevisit欄には固定文言（例:
+      `(再検討条件なし)`）が入り、revisit未設定のエントリであることが他のエントリと区別して判別できる"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: decision=adoptでrevisit省略時、exit0かつ固定文言「再検討条件なし」が記録されることを確認
+    evidence: tests/trend-watch.test.ts:120-131
+  - id: AC-043
+    kind: functional
+    given: "`--decision adopt` で `--revisit \"...\"` を明示的に指定する状態で"
+    when: "record-trend.ts を実行する"
+    then: "exit code
+      0で正常に記録され、指定した`--revisit`の内容がそのままエントリに書き込まれる（adoptだからといって無視・拒否されない）"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: decision=adoptでrevisit明示指定時、exit0かつ指定内容がそのまま記録され、固定文言に置換されないことを確認（両方アサーション済み）
+    evidence: tests/trend-watch.test.ts:133-148
+  - id: AC-041
+    kind: functional
+    given: "`.claude/commands/trend-watch.md` の内容を確認する状態で"
+    when: "コマンド定義の手順を読む"
+    then: "WebSearch/WebFetchによる調査を行い、発見事項を人間に提示して承認を得た上で record-trend.ts
+      を呼び出す旨の記述を含む（自動導入や無承認での記録を行わない旨も含む）"
+    priority: should
+    verify: inspection
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: "inspection:
+      WebSearch/WebFetch調査(13行目)、承認を得てからrecord-trend.tsを呼ぶ(18,21行目)、禁止事項に無承認記録禁\
+      止(32行目)と無承認導入禁止(33行目)の記述を確認"
+    evidence: .claude/commands/trend-watch.md:13,18,21,32-33
