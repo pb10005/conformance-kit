@@ -124,11 +124,19 @@ npx tsx scripts/record-verdict.ts --ac AC-002 --verdict fail --note "期限切�
 ## 既知の限界・未着手
 
 - 逆方向トレースはファイル単位。`@covers AC-001` を持つファイルに無関係な関数を足しても検出しない。関数単位の検出は `scope-auditor`（LLM）の担当
-- カバー判定は `it()`/`test()` タイトルの文字列一致。Vitest/Jest/node:test は動作確認済みだが、Playwright の `test.describe` 内のタイトルも同じ正規表現で拾えるはずだが未検証
+- カバー判定は `it()`/`test()` タイトルの文字列一致。Vitest/Jest/node:test に加え、Playwright（`@playwright/test`をimportしているファイル限定）の `test.describe` タイトルも動作確認済み（詳細は `specs/playwright-support/`）。ただし2階層より深いdescribeの入れ子、動的タイトル（テンプレートリテラル）は対象外
 - pytest（Python）は `codeExtensions` に `py` を含めれば検出対象になる（docstring方式、詳細は `specs/pytest-support/`）。それ以外の非JS/Pythonの言語・pytest以外のPythonテストフレームワーク（unittest単体、nose等）は未対応
 - `verifier` の「コードを編集しない」は Bash ツールを持つ以上プロンプト頼み。厳密にしたいなら `verifier` の `tools` から Bash を外し、テスト実行を呼び出し元で行って結果を渡す構成にする
 - `UNOBSERVABLE_THEN` は観測動詞の辞書一致。英語で書かれた要件はほぼ拾えない（辞書に英語が少ない）
 - 「最大3問」（`/spec` の質問数上限）はプロンプト制約であり機械的な強制ではない。守られているかは人間が見るしかない
 - `spec-challenger` の指摘品質は測っていない。誤検知が多ければ観点を絞る
-- 要件の変更履歴を持たない。`requirements.yaml` は git 履歴以外に変更理由を残さない。`/reconcile` で要件を変えた理由を記録する仕組みは未実装
 - 複数機能をまたぐ要件（機能Aの変更が機能BのACを壊す）の検出は未対応
+
+## 検討した外部サービス統合（見送り）
+
+conformance-kitは現在 Claude Code 以外の外部サービスに依存しない構成を意図的に保っている。以下は導入を検討した上で見送った項目。再検討条件が満たされた場合のみ再評価する。
+
+- **Jev (TypeSafe AI)** — 見送り（検討日: 2026-09-18）
+  - 検討内容: `spec-lint.ts` の正規表現ベースの意味チェック（`AMBIGUOUS_TERM` / `UNOBSERVABLE_THEN` / `NO_FAILURE_PATH`）を、確率付きの高速判定モデル「Jev」で補強できないか
+  - 見送り理由: (1) 導入するとAPIキー管理・CIシークレット・`gate`の決定論性の毀損（外部ネットワーク依存の混入）・要件テキストが新興ベンダーへ渡る信頼境界の拡張が発生する。(2) 便益側も、同種の意味的チェックは既に `spec-challenger`/`verifier`/`scope-auditor`（いずれも既存依存のClaude Code経由）が多段でカバーしており限定的。(3) spec-lintは元々ミリ秒で完結する処理であり、外部API往復（数百ms）はこの箇所では高速化ではなく純増コストになる
+  - 再検討条件: (a) spec数・CI実行頻度が増え、LLMサブエージェントの往復コストが実際にボトルネック化したとき／(b) 正規表現ヒューリスティックの見逃しが実測で繰り返し問題化したとき／(c) TypeSafe AI側でSLA・Node公式SDK・価格の実績が積まれたとき
