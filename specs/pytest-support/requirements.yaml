@@ -1,0 +1,146 @@
+# FEAT-004 — 要件の単一の正。実装・テスト・レビューはこれに従属する。
+#
+# 埋め方: 人間に質問する前に、AIが全項目を推測で埋め切ること。
+# 人間の仕事は白紙を埋めることではなく、埋まったものを否定・修正することにある。
+# 確信が持てない箇所は open_questions か assumptions に置き、空欄で残さない。
+id: FEAT-004
+title: "pytestで書かれたテストのAC-IDカバー検出をtrace-matrix.tsでサポートする"
+status: frozen # draft -> (spec-lint --gate freeze) -> frozen
+
+# 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
+intent: "Pythonでテストを書いている対象リポジトリでも、conformance-kitのtrace-matrix.tsがAC-IDカバレッジを検\
+  出できるようにする。現状は JS/TSの `it()`/`test()`
+  呼び出しの文字列タイトルにしか対応しない正規表現(`TEST_CALL_RE`)しか無く、Pythonのテスト関数 (`def
+  test_foo():`)は一切拾えないため、Pythonリポジトリでは適合性ループそのものが機能しない。"
+
+# 過剰実装を止める外周。draft を抜けるには最低1件必要。
+# 「やらないと決めたこと」であって「将来やること」ではない。
+out_of_scope:
+  - "class-based `unittest.TestCase` のメソッド(`def test_foo(self):`
+    をクラス内に書く形)のサポート。トップレベルの関数のみを対象とする"
+  - "`@pytest.mark.skipif` / `@pytest.mark.xfail` のような条件付き・準スキップの区別。無条件の
+    `@pytest.mark.skip` のみをスキップとして扱う"
+  - "pytest以外のPythonテストフレームワーク（unittest単体、nose、Robot Frameworkを含む）への対応"
+  - "conformance-kit自身がpytestを実行すること（既存のJS/TS対応同様、trace-matrix.tsは静的解析のみでテストランナ\
+    ーは呼ばない）"
+  - "`conformance.config.json`
+    に汎用的な「言語ごとのテスト検出パターン」プラグイン機構を追加すること。今回はpytest専用の組み込み検出のみを実装する"
+  - "デコレータが複数行にまたがる場合（例: `@pytest.mark.skip(
+
+    \  reason=\"...\",
+
+    )`）の検出。`@pytest.mark.skip` は単一行内に書かれている前提とする"
+  - "`@pytest.mark.parametrize` と `@pytest.mark.skip`
+    を併用した場合の相互作用。parametrizeされたテストはAC-IDが書かれていれば単純に有効なカバーとして扱う"
+  - "conftest.py内の `@pytest.fixture` 関数の扱い。テスト関数(`def
+    test_*`)ではないため既存の命名規則で自然に対象外となり、追加のロジックは設けない"
+
+# 確信が持てないまま進める判断。コード側に @assumption AS-001 を残して回収可能にする。
+# owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
+assumptions:
+  - id: AS-010
+    statement: "PythonテストのAC-IDは、`def test_foo():`（`async def`
+      も含む）の直後に続くdocstringに書く。トリプルクォートは `\"\"\"` `'''`
+      のどちらでもよい。複数のAC-IDを持たせる場合はJS/TSの `it()` と同様にカンマ区切りで1つのdocstring内に並べる（例:
+      `\"\"\"AC-001, AC-002:
+      説明\"\"\"`）。関数名やデコレータへのAC-IDの埋め込みは採用しない。既存のJS/TSにおける『it()/test()の第一引数の文字列』\
+      と同じ役割をdocstringが担う"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-25"
+  - id: AS-011
+    statement: "対象はトップレベルの関数(`def test_foo():`)のみとし、`unittest.TestCase`
+      を継承したクラスのメソッドは対象外とする。将来クラスメソッド対応を追加しても既存の検出は壊れない（追加のみで破壊的変更にならない）ため、低リスクな\
+      絞り込みとして今回は確定させる"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-18"
+  - id: AS-012
+    statement: "スキップ判定は無条件の `@pytest.mark.skip` （`reason=`
+      引数の有無を問わない）のみを対象とする。`@pytest.mark.skipif(条件, ...)` や `@pytest.mark.xfail`
+      は静的解析だけでは実行時に実際にスキップされるか判別できないため、スキップとして扱わず通常のカバーとみなす"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-18"
+  - id: AS-013
+    statement: "`.py` を検出対象にするための新しい設定項目は追加しない。`conformance.config.json` の既存の
+      `codeExtensions` に `py` が含まれている場合、trace-matrix.tsは拡張子が `.py`
+      のファイルにのみ自動的にpytest用の検出ロジックを適用する（JS/TS拡張子には従来のロジックを適用する）。混在リポジトリでも両方が同時に機能\
+      する"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-18"
+
+# 人間の判断が要る未決事項。frozen にするには空にする（確定させるか assumptions へ降格）。
+open_questions: []
+
+# 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
+# then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
+acceptance:
+  - id: AC-018
+    kind: functional
+    given: "conformance.config.json の `codeExtensions` に `py`
+      が含まれており、Pythonのテストファイルの `def test_foo():` または `async def test_foo():`
+      の直後にdocstringとして `\"\"\"AC-XXX: 説明\"\"\"`、あるいは複数のAC-IDをカンマ区切りで含む
+      `\"\"\"AC-XXX, AC-YYY: 説明\"\"\"` が書かれている状態で"
+    when: "trace-matrix.ts がそのファイルをスキャンする"
+    then: "docstringに書かれた全てのAC-ID（単数・複数いずれも）が有効なカバーとして扱われ、それぞれのUNCOVERED_ACは出力されない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    evidence: tests/pytest-support.test.ts:24 (単数/複数/async defを検証) + trace-matrix.ts
+      --json 手動実行でAC-901/AC-902ともにUNCOVERED_AC/SKIPPED_TESTが出力されないことを確認
+  - id: AC-019
+    kind: functional
+    given: "Pythonのテスト関数が `@pytest.mark.skip`（`reason=` 引数の有無を問わない）で装飾され、docstringに
+      `AC-XXX` が書かれている状態で"
+    when: "trace-matrix.ts がそのファイルをスキャンする"
+    then: "AC-XXXはSKIPPED_TESTとして出力される。カバー一覧には計上されない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    evidence: tests/pytest-support.test.ts:39 (reason有無どちらもskipped扱い) +
+      trace-matrix.ts --json 手動実行でSKIPPED_TESTがerror出力され、coverageが空配列になることを確認
+  - id: AC-020
+    kind: functional
+    given: "Pythonのテスト関数にdocstringが無い、docstringにAC-IDが存在しない、またはAC-IDが同ファイル内のコメントや別の\
+      関数のdocstring（『対象関数直後のdocstring以外』の箇所）にのみ存在する状態で"
+    when: "trace-matrix.ts がそのファイルをスキャンする"
+    then: "該当ACはUNCOVERED_ACとして出力され続ける（docstring以外での言及だけではカバーとして扱わない）"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    evidence: tests/pytest-support.test.ts:56 (docstring無し/AC-ID無し/コメントのみの3パターン) +
+      trace-matrix.ts --json 手動実行でUNCOVERED_ACが出力され続けることを確認
+  - id: AC-021
+    kind: functional
+    given: "`.py`ファイルの文字列やコメントの中にJSの `it(\"AC-XXX: ...\")` に似た文字列が、あるいは `.ts`
+      ファイルのコメントの中にPythonのdocstringに似た文字列が偶然含まれる状態で、両方のファイルが同じリポジトリ内に存在する"
+    when: "trace-matrix.ts がリポジトリ全体をスキャンする"
+    then: "各ファイルはその拡張子に対応する検出ロジックのみが適用され、拡張子を跨いだ誤検出は発生しない"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    evidence: tests/pytest-support.test.ts:87
+      CLIをtmpリポジトリに対し実行し、.py内のJS風文字列(AC-002)は検出されず、.ts内のpython風文字列(AC-003)も検出されず、正規のpythonカバー(AC-001)のみ検出されることをJSON出力で確認
+  - id: AC-022
+    kind: functional
+    given: "Pythonのテスト関数が `@pytest.mark.skipif(条件, reason=\"...\")`
+      （無条件ではなく条件付きのskip）のみで装飾され、docstringに `AC-XXX` が書かれている状態で"
+    when: "trace-matrix.ts がそのファイルをスキャンする"
+    then: "AC-XXXについてSKIPPED_TESTは出力されない（無条件skipではないため）。有効なカバーとして扱われる"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    evidence: tests/pytest-support.test.ts:75 (skipifはactiveに残りskippedに入らない) +
+      trace-matrix.ts --json 手動実行でSKIPPED_TESTが出ず通常カバーとして検出されることを確認

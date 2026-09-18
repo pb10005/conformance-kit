@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016
+// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016, AC-021
 /**
  * trace-matrix.ts
  *
@@ -11,6 +11,8 @@
  *
  * カバーの定義: 有効な it()/test() の **タイトル文字列** に AC-ID が含まれること。
  * コメント・describe・skip/todo/xit は数えない。
+ * `.py` ファイルは代わりに pytest 用の検出（トップレベル関数直後のdocstring）を使う。
+ * 拡張子ごとに使う検出ロジックを完全に分けており、混在しない（FEAT-004 AC-021）。
  *
  * usage:
  *   npx tsx scripts/trace-matrix.ts [--json] [--strict] [--base origin/master] [--root <dir>]
@@ -26,6 +28,7 @@ import { join, relative, extname } from "node:path";
 import { execSync } from "node:child_process";
 import { parse } from "yaml";
 import { toPosixPath } from "./lib/posix-path.ts";
+import { extractPytestCoverage } from "./lib/pytest-detect.ts";
 
 // ---------- types ----------
 type Level = "error" | "warn";
@@ -167,9 +170,15 @@ for (const dir of cfg.srcDirs) {
     for (const m of text.matchAll(COVERS_RE)) for (const id of m[1].match(AC_RE) ?? []) covers.add(id);
     const activeTitles = new Set<string>();
     const skippedTitles = new Set<string>();
-    for (const m of text.matchAll(TEST_CALL_RE)) {
-      const skipped = m[1] === "x" || m[3] === "skip" || m[3] === "todo";
-      for (const id of m[5].match(AC_RE) ?? []) (skipped ? skippedTitles : activeTitles).add(id);
+    if (extname(f) === ".py") {
+      const { active, skipped } = extractPytestCoverage(text);
+      for (const id of active) activeTitles.add(id);
+      for (const id of skipped) skippedTitles.add(id);
+    } else {
+      for (const m of text.matchAll(TEST_CALL_RE)) {
+        const skipped = m[1] === "x" || m[3] === "skip" || m[3] === "todo";
+        for (const id of m[5].match(AC_RE) ?? []) (skipped ? skippedTitles : activeTitles).add(id);
+      }
     }
     files.push({
       path: toPosixPath(relative(root, f)),
