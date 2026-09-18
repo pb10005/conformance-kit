@@ -1,5 +1,4 @@
 // @covers AC-018, AC-019, AC-020, AC-022
-// @assumption AS-010, AS-012
 //
 // pytest（Python）のトップレベルテスト関数からAC-IDカバレッジを抽出する。
 // JS/TSの TEST_CALL_RE（it()/test()呼び出しの文字列タイトル）に相当するPython版。

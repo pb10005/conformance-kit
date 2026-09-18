@@ -70,6 +70,19 @@ assumptions:
     status: confirmed
     owner: pb10005
     resolve_by: "2026-09-18"
+  - id: AS-014
+    statement: "trace-matrix.ts の `isTest` 判定（`testFilePattern`
+      とファイルパスの照合）は、`f`（walk()が返すOSネイティブ区切りの生パス）ではなく、既存の
+      `toPosixPath(relative(root, f))` に対して行う。理由: `testFilePattern`
+      はパス区切りに`/`を前提にした表現（例:
+      `(^|/)test_[^/]+\\.py$`）で書かれうるが、生パスはWindows上ではバックスラッシュ区切りのため一致しない。これはFEAT\
+      -003(AS-006/AS-007)で確立したパス正規化方針をisTest判定にも一貫適用するものであり、FEAT-004のwindows-se\
+      lfcheck実機検証（pytestの`test_*.py`という`/`アンカー付きパターンで初めて顕在化）で発見・修正した。specs/win/\
+      requirements.yamlのAC-010/AC-011（reverse
+      traceのパス比較）とは対象箇所が異なるため、そちらのACを追加/変更するのではなく本specに起票する"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-09-18"
 
 # 人間の判断が要る未決事項。frozen にするには空にする（確定させるか assumptions へ降格）。
 open_questions: []
@@ -90,8 +103,10 @@ acceptance:
     status: pass
     attempts: 0
     verified_at: 2026-09-18
-    evidence: tests/pytest-support.test.ts:24 (単数/複数/async defを検証) + trace-matrix.ts
-      --json 手動実行でAC-901/AC-902ともにUNCOVERED_AC/SKIPPED_TESTが出力されないことを確認
+    evidence: "tests/pytest-support.test.ts:24,39 (単一/複数/async def/CRLFを検証, node
+      --test で6/6 pass) + 手動CLI: --root <fixture> --json で
+      AC-901(単一)/AC-902(async
+      def)がcoverageに入り、SKIPPED_TEST/UNCOVERED_ACが出ないことを確認"
   - id: AC-019
     kind: functional
     given: "Pythonのテスト関数が `@pytest.mark.skip`（`reason=` 引数の有無を問わない）で装飾され、docstringに
@@ -103,8 +118,10 @@ acceptance:
     status: pass
     attempts: 0
     verified_at: 2026-09-18
-    evidence: tests/pytest-support.test.ts:39 (reason有無どちらもskipped扱い) +
-      trace-matrix.ts --json 手動実行でSKIPPED_TESTがerror出力され、coverageが空配列になることを確認
+    evidence: "tests/pytest-support.test.ts:47 (reason有無どちらもskipped扱い, node --test
+      pass) + 手動CLI:
+      reason付き@pytest.mark.skipのAC-903がSKIPPED_TESTとしてerror出力され、coverageは空配列である\
+      ことを確認"
   - id: AC-020
     kind: functional
     given: "Pythonのテスト関数にdocstringが無い、docstringにAC-IDが存在しない、またはAC-IDが同ファイル内のコメントや別の\
@@ -116,8 +133,9 @@ acceptance:
     status: pass
     attempts: 0
     verified_at: 2026-09-18
-    evidence: tests/pytest-support.test.ts:56 (docstring無し/AC-ID無し/コメントのみの3パターン) +
-      trace-matrix.ts --json 手動実行でUNCOVERED_ACが出力され続けることを確認
+    evidence: "tests/pytest-support.test.ts:64
+      (docstring無し/AC-ID無し/コメントのみの3パターンでactive.size===0, node --test pass) +
+      手動CLI: コメントのみで言及されたAC-905がUNCOVERED_ACとして出力され続け、coverageが空配列であることを確認"
   - id: AC-021
     kind: functional
     given: "`.py`ファイルの文字列やコメントの中にJSの `it(\"AC-XXX: ...\")` に似た文字列が、あるいは `.ts`
@@ -129,8 +147,10 @@ acceptance:
     status: pass
     attempts: 0
     verified_at: 2026-09-18
-    evidence: tests/pytest-support.test.ts:87
-      CLIをtmpリポジトリに対し実行し、.py内のJS風文字列(AC-002)は検出されず、.ts内のpython風文字列(AC-003)も検出されず、正規のpythonカバー(AC-001)のみ検出されることをJSON出力で確認
+    evidence: "tests/pytest-support.test.ts:95 (CLIをtmpリポジトリに実行, node --test pass) +
+      独立の手動CLI再現:
+      .py内のJS風コメント(AC-902重複記述)と.ts内のpython風docstring風コメント(AC-905)がどちらも誤検出されず、拡張\
+      子ごとの検出ロジックが分離されていることを確認"
   - id: AC-022
     kind: functional
     given: "Pythonのテスト関数が `@pytest.mark.skipif(条件, reason=\"...\")`
@@ -142,5 +162,28 @@ acceptance:
     status: pass
     attempts: 0
     verified_at: 2026-09-18
-    evidence: tests/pytest-support.test.ts:75 (skipifはactiveに残りskippedに入らない) +
-      trace-matrix.ts --json 手動実行でSKIPPED_TESTが出ず通常カバーとして検出されることを確認
+    evidence: "tests/pytest-support.test.ts:83 (skipifはactiveに残りskippedに入らない, node
+      --test pass) + 手動CLI:
+      @pytest.mark.skipif装飾のAC-904がcoverageに入りSKIPPED_TESTが出ないことを確認"
+  - id: AC-023
+    kind: functional
+    given: "trace-matrix.ts の isTest 判定（AS-014）が toPosixPath(relative(root, f))
+      に対して行われ、`testFilePattern` がパス区切り `/` をアンカーとして使うパターン（例:
+      `(^|/)test_[^/]+\\.py$`）である状態で"
+    when: "windows-latestランナー上で、そのパターンにマッチするPythonテストファイル（例:
+      tests/test_fixture.py）を含むリポジトリに対して trace-matrix.ts（npm run gate 経由）を実行する"
+    then: "該当ファイルのdocstring由来のAC-IDが `--json` の coverage
+      一覧に出力される。バックスラッシュ区切りの生パスに対して判定していた場合に出るはずのUNCOVERED_ACは出力されない"
+    priority: must
+    verify: manual
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-18
+    note: windows-latest実機のnpm run gate経由で、tests/test_fixture.py（testFilePattern
+      (^|/)test_[^/]+\.py$）に対しtrace-matrix.ts
+      --jsonを実行し、docstring由来のAC-001がcoverageに出力されること（=UNCOVERED_AC非発生と等価、trace-matrix.ts:221-226のロジックによりcoverage.length>0ならUNCOVERED_ACは出ない）をAC-021のテストが直接検証。f28fa6fのisTest修正差分・CI
+      run結果・job idを独立に確認し一致を確認した。
+    evidence: "gh run 35314256155 (job 105502428583 windows-selfcheck, headSha f28fa6f)
+      log lines 268-269; tests/pytest-support.test.ts:95-166 (AC-021 subtest, ok
+      6); scripts/trace-matrix.ts diff in f28fa6f (isTest:
+      testRe.test(posixPath))"

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016, AC-021
+// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016, AC-021, AC-023
 /**
  * trace-matrix.ts
  *
@@ -187,6 +187,7 @@ for (const dir of cfg.srcDirs) {
       // Windowsのバックスラッシュを含む生パス f ではなく正規化済みの posixPath に対して判定する
       // （FEAT-004のWindows実機検証で、この判定漏れによりpytestのテストファイルが isTest=false に
       // なる不具合として発見された。JSの既存パターンはファイル名末尾のみを見るため today まで顕在化しなかった）
+      // @assumption AS-014
       isTest: testRe.test(posixPath),
       mentions: new Set(text.match(AC_RE) ?? []),
       activeTitles, skippedTitles, covers,
