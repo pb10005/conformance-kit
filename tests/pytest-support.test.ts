@@ -36,6 +36,14 @@ describe("pytest対応 (FEAT-004)", () => {
     assert.equal(skipped.size, 0);
   });
 
+  it("AC-018: CRLF改行のPythonファイル（Windows上でよく見られる）でも検出できる", () => {
+    const lf = ["def test_foo():", '    """AC-018: CRLFでも検出できる"""', "    assert True", ""].join("\n");
+    const crlf = lf.replace(/\n/g, "\r\n");
+    const { active, skipped } = extractPytestCoverage(crlf);
+    assert.ok(active.has("AC-018"), "CRLF改行のファイルでAC-IDが検出できていない");
+    assert.equal(skipped.size, 0);
+  });
+
   it("AC-019: @pytest.mark.skipが付与されたテストはSKIPPED_TEST相当（skippedへ分類）になる", () => {
     const text = [
       "@pytest.mark.skip",
