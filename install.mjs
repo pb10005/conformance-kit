@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 // @covers AC-012, AC-013, AC-017
-// @assumption AS-006
 //
 // conformance-kit を対象リポジトリへ導入する。プレーンなNode ESM（追加依存なし）で書かれており、
 // 対象リポジトリで `npm i` する前でも実行できる。POSIXシェルに一切依存しないため、
