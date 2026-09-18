@@ -21,9 +21,9 @@ model: inherit
 
 ## 手順
 
-1. `npx tsx scripts/trace-matrix.ts --json` で機械的な穴を先に把握する。
+1. 呼び出しプロンプトに添付された `trace-matrix --json` の結果を確認する。**これは実装コードを変えない機械的な計算結果なので、自分で再実行する必要はありません**（呼び出し元がすでに実行済みです）。添付が無い場合のみ自分で実行してください。
 2. `status` が `pending` / `fail` のACを1件ずつ処理する。
-3. 各ACについて、`given / when / then` を実際に検証しているテストを特定し、**実行して**結果を確認する。
+3. 各ACについて、`given / when / then` を実際に検証しているテストを特定し、**そのテストファイルだけを実行して**結果を確認する。無関係なテストファイルまで再走査・再実行する必要はありません。
 4. 判定を下し、`npx tsx scripts/record-verdict.ts --ac AC-XXX --verdict ... --evidence <file:line> --note ...` で書き戻す。yaml を直接編集しないでください。
 
 ## 判定の原則

@@ -11,7 +11,7 @@ AIコーディングで最も検出されにくい欠陥は、未実装ではな
 
 ## 手順
 
-1. `npx tsx scripts/trace-matrix.ts --base <base> --json` を実行し、`UNTRACED_CHANGE` の一覧を取得する。
+1. 呼び出しプロンプトに添付された `trace-matrix --base <base> --json` の結果（`UNTRACED_CHANGE` 一覧を含む）を確認する。**これは実装コードを変えない機械的な計算結果なので、自分で再実行する必要はありません**（呼び出し元がすでに実行済みです）。添付が無い場合のみ自分で実行してください。
 2. `git diff <base>...HEAD` で実際の差分を読む。
 3. 各要件の `out_of_scope` を読む。
 
