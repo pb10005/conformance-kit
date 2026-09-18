@@ -38,7 +38,6 @@ scripts/gate.ts                     トレース + テスト + 型（bash不使�
 .claude/commands/verify.md          /verify
 .claude/commands/reconcile.md       /reconcile
 CLAUDE.md                           実装者向け規約（対象リポジトリの CLAUDE.md にマージ）
-HANDOFF.md                          Claude Code への引き継ぎ手順と既知の限界
 .github/workflows/conformance.yml   CIゲート
 ```
 
@@ -121,3 +120,15 @@ npx tsx scripts/record-verdict.ts --ac AC-002 --verdict fail --note "期限切�
 `frozen` / `reconciling` の要件は、`--gate freeze` の有無にかかわらず常に厳格判定になる。凍結済みの要件が曖昧なまま warn で通過することはない。
 
 曖昧語は正規表現で判定しており、「等しい」「未定義」「高速道路」のような正当な語は拾わない。
+
+## 既知の限界・未着手
+
+- 逆方向トレースはファイル単位。`@covers AC-001` を持つファイルに無関係な関数を足しても検出しない。関数単位の検出は `scope-auditor`（LLM）の担当
+- カバー判定は `it()`/`test()` タイトルの文字列一致。Vitest/Jest/node:test は動作確認済みだが、Playwright の `test.describe` 内のタイトルも同じ正規表現で拾えるはずだが未検証
+- Python 等の非JS実装は `codeExtensions` を変えれば走査対象にはできるが、テストタイトル検出の正規表現（`TEST_CALL_RE`）は JS/TS の構文が前提
+- `verifier` の「コードを編集しない」は Bash ツールを持つ以上プロンプト頼み。厳密にしたいなら `verifier` の `tools` から Bash を外し、テスト実行を呼び出し元で行って結果を渡す構成にする
+- `UNOBSERVABLE_THEN` は観測動詞の辞書一致。英語で書かれた要件はほぼ拾えない（辞書に英語が少ない）
+- 「最大3問」（`/spec` の質問数上限）はプロンプト制約であり機械的な強制ではない。守られているかは人間が見るしかない
+- `spec-challenger` の指摘品質は測っていない。誤検知が多ければ観点を絞る
+- 要件の変更履歴を持たない。`requirements.yaml` は git 履歴以外に変更理由を残さない。`/reconcile` で要件を変えた理由を記録する仕組みは未実装
+- 複数機能をまたぐ要件（機能Aの変更が機能BのACを壊す）の検出は未対応
