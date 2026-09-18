@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016
+// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016, AC-021, AC-023
 /**
  * trace-matrix.ts
  *
@@ -11,6 +11,8 @@
  *
  * カバーの定義: 有効な it()/test() の **タイトル文字列** に AC-ID が含まれること。
  * コメント・describe・skip/todo/xit は数えない。
+ * `.py` ファイルは代わりに pytest 用の検出（トップレベル関数直後のdocstring）を使う。
+ * 拡張子ごとに使う検出ロジックを完全に分けており、混在しない（FEAT-004 AC-021）。
  *
  * usage:
  *   npx tsx scripts/trace-matrix.ts [--json] [--strict] [--base origin/master] [--root <dir>]
@@ -26,6 +28,7 @@ import { join, relative, extname } from "node:path";
 import { execSync } from "node:child_process";
 import { parse } from "yaml";
 import { toPosixPath } from "./lib/posix-path.ts";
+import { extractPytestCoverage } from "./lib/pytest-detect.ts";
 
 // ---------- types ----------
 type Level = "error" | "warn";
@@ -167,13 +170,25 @@ for (const dir of cfg.srcDirs) {
     for (const m of text.matchAll(COVERS_RE)) for (const id of m[1].match(AC_RE) ?? []) covers.add(id);
     const activeTitles = new Set<string>();
     const skippedTitles = new Set<string>();
-    for (const m of text.matchAll(TEST_CALL_RE)) {
-      const skipped = m[1] === "x" || m[3] === "skip" || m[3] === "todo";
-      for (const id of m[5].match(AC_RE) ?? []) (skipped ? skippedTitles : activeTitles).add(id);
+    if (extname(f) === ".py") {
+      const { active, skipped } = extractPytestCoverage(text);
+      for (const id of active) activeTitles.add(id);
+      for (const id of skipped) skippedTitles.add(id);
+    } else {
+      for (const m of text.matchAll(TEST_CALL_RE)) {
+        const skipped = m[1] === "x" || m[3] === "skip" || m[3] === "todo";
+        for (const id of m[5].match(AC_RE) ?? []) (skipped ? skippedTitles : activeTitles).add(id);
+      }
     }
+    const posixPath = toPosixPath(relative(root, f));
     files.push({
-      path: toPosixPath(relative(root, f)),
-      isTest: testRe.test(f),
+      path: posixPath,
+      // testFilePattern はパス区切りに "/" を使う前提(例: "(^|/)test_[^/]+\.py$")で書かれうるため、
+      // Windowsのバックスラッシュを含む生パス f ではなく正規化済みの posixPath に対して判定する
+      // （FEAT-004のWindows実機検証で、この判定漏れによりpytestのテストファイルが isTest=false に
+      // なる不具合として発見された。JSの既存パターンはファイル名末尾のみを見るため today まで顕在化しなかった）
+      // @assumption AS-014
+      isTest: testRe.test(posixPath),
       mentions: new Set(text.match(AC_RE) ?? []),
       activeTitles, skippedTitles, covers,
       assumptions: new Set([...text.matchAll(ASSUME_RE)].map((m) => m[1])),
