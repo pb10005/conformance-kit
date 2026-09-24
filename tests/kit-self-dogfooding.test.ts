@@ -1,7 +1,7 @@
 // @covers AC-044, AC-045, AC-046, AC-047, AC-048, AC-049, AC-050, AC-051, AC-052, AC-053, AC-054, AC-055, AC-056, AC-058, AC-059, AC-060, AC-061
 // 実在しない AC-ID / AS-ID のフィクスチャは "AC-" + "900" のように組み立てる。そのまま書くと
 // tests/ を走査するリポジトリ自身のトレースで DANGLING_AC / UNRECORDED_ASSUMPTION になる。
-// @assumption AS-034
+// （FEAT-008 AS-034）
 import { describe, it } from "node:test";
 import assert from "node:assert";
 import { execFileSync } from "node:child_process";

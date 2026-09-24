@@ -42,7 +42,7 @@ try {
 const featId = `FEAT-${String(maxNo + 1).padStart(3, "0")}`;
 
 // 例示コメントは AS-XXX 表記にする。実在IDを書くとキット自身の走査で実在の仮定への参照として拾われる
-// @assumption AS-033
+// （FEAT-008 AS-033）
 const template = `# ${featId} — 要件の単一の正。実装・テスト・レビューはこれに従属する。
 #
 # 埋め方: 人間に質問する前に、AIが全項目を推測で埋め切ること。

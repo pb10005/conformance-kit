@@ -65,7 +65,7 @@ assumptions:
       を残して』は、キット本体を走査すると実在のAS-001への参照として誤検出される（STALE_ASSUMPTION_TAG）。例示文言を
       `@assumption AS-XXX`
       に言い換える。生成されるrequirements.yamlのコメント文言が変わるだけで、YAMLとしての内容は変わらない"
-    status: assumed
+    status: confirmed
     owner: kohei-dev
     resolve_by: "2026-10-08"
 
@@ -74,7 +74,7 @@ assumptions:
       AS-IDを含むテスト用フィクスチャは、tests/のソースにその文字列がそのまま現れないように組み立てる（例:`\"AS-\" +
       \"777\"`）。tests/はsrcDirsに含まれるため、そのまま書くとリポジトリ自身のトレースでDANGLING_AC・UNRECORDE\
       D_ASSUMPTIONが出る"
-    status: assumed
+    status: confirmed
     owner: kohei-dev
     resolve_by: "2026-10-08"
 
