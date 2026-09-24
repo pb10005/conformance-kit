@@ -46,7 +46,7 @@ assumptions:
     statement: "記録先はプロジェクトルート直下の新規ファイル `TREND_BACKLOG.md`
       とし、spec単位ではなくプロジェクト全体で1つに統一する。今回のJev評価のように、どの既存specにも属さない横断的な技術選定判断を扱うため、\
       specs/<slug>/decisions.md（spec単位）とは別のトップレベルファイルが適切"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-025
@@ -60,13 +60,13 @@ assumptions:
       `(再検討条件なし)`）を record-trend.ts
       側でrevisit欄に補って記録する。実際に再検討条件を再確認する自動監視は持たない（out_of_scope）が、記録フォーマット上はrevis\
       it欄が常に埋まっている状態を保つ"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-026
     statement: "TREND_BACKLOG.md のエントリ形式は record-decision.ts の decisions.md
       と同様、Markdown箇条書き1行を常に末尾に追記する追記専用ログとする。初回作成時のみ見出し行を先頭に付与する"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-027
@@ -75,7 +75,7 @@ assumptions:
       を呼ぶ手順を記述する。調査プロセス自体（何を検索しどう評価するか）はLLMの判断に委ねるため機械テストの対象外とし、`record-trend.t\
       s` の記録動作のみをACの対象とする（`.claude/commands/reconcile.md` と `record-decision.ts`
       の関係と同じ構成）"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-028
@@ -83,7 +83,7 @@ assumptions:
       `record-trend.ts` 経由で `TREND_BACKLOG.md`
       へ遡及的に移設し、README側の当該セクションは本バックログへの案内に置き換える。移設作業は本specの受入基準には含めない（別途の作業として実\
       施する）"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-029
@@ -93,7 +93,7 @@ assumptions:
       外部サービス・依存パッケージ・モデルの採用可否）に関するもので、特定のspecの要件変更を伴わない、またはどのspecにも一意に属さない場合は
       TREND_BACKLOG.md に記録する。両方に該当する場合（例:
       あるspec実装のためにAIモデルを採用し、かつそのspecのACも追加する場合）は両方に記録してよい（重複記録を禁止しない）"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
 

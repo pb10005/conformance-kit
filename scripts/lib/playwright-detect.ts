@@ -16,7 +16,7 @@
 // この検出は isPlaywrightFile() が true を返すファイル（@playwright/test をimportしているファイル）にのみ
 // trace-matrix.ts から呼び出される。それ以外のファイルは従来通りTEST_CALL_REのみで判定され、
 // この検出ロジックの影響を受けない（AC-032）。
-// @assumption AS-019
+// （FEAT-006 AS-019）
 const AC_RE = /\bAC-\d{3,}\b/g;
 const PLAYWRIGHT_IMPORT_RE = /from\s+["']@playwright\/test["']/;
 
@@ -38,7 +38,7 @@ export function isPlaywrightFile(text: string): boolean {
 }
 
 // fixmeはskip相当、fail（失敗することを期待して実行される）はactiveとして扱う。
-// @assumption AS-022
+// （FEAT-006 AS-022）
 function isTestCallSkipped(xPrefix: string, modifier: string | undefined): boolean {
   return xPrefix === "x" || modifier === "skip" || modifier === "todo" || modifier === "fixme";
 }
@@ -96,20 +96,20 @@ export function extractPlaywrightCoverage(text: string): PlaywrightCoverage {
     if (ids.length === 0) continue;
 
     // describe自体が.skip/.fixmeなら、直下のtest()の状態に関わらず常にskipped扱いにする。
-    // @assumption AS-021
+    // （FEAT-006 AS-021）
     if (modifier === "skip" || modifier === "fixme") {
       for (const id of ids) skipped.add(id);
       continue;
     }
 
     // 直下（1階層）に有効(非skip)なtest()が1件以上ある場合にのみカバーとして扱う。
-    // @assumption AS-020
+    // （FEAT-006 AS-020）
     const body = extractDescribeBody(text, m.index + m[0].length);
     const directBody = body !== null ? directChildrenOnly(body) : null;
     const hasActiveChild =
       directBody !== null && [...directBody.matchAll(PW_TEST_CALL_RE)].some((cm) => !isTestCallSkipped(cm[1], cm[3]));
     // describe側とtest()側のAC-IDは優先順位を付けず独立して和集合で加える。
-    // @assumption AS-023
+    // （FEAT-006 AS-023）
     if (hasActiveChild) for (const id of ids) active.add(id);
   }
 
