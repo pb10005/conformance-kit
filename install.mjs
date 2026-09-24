@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @covers AC-012, AC-013, AC-017
+// @covers AC-012, AC-013, AC-017, AC-049, AC-059, AC-060
 //
 // conformance-kit を対象リポジトリへ導入する。プレーンなNode ESM（追加依存なし）で書かれており、
 // 対象リポジトリで `npm i` する前でも実行できる。POSIXシェルに一切依存しないため、
@@ -25,6 +25,15 @@ if (!existsSync(TARGET)) {
   process.exit(2);
 }
 
+// 配布用の設定はキット自身の conformance.config.json（scripts/ と install.mjs を検査対象に含む）ではなく
+// templates/ から配る。キット用の設定を配ると、導入先で配布済み scripts/ の @covers が DANGLING_AC になる（FEAT-008 AS-031）。
+// 中途半端な導入状態を残さないよう、何かを書き込む前に存在を確かめる。
+const CONFIG_TEMPLATE = join(KIT, "templates", "conformance.config.json");
+if (!existsSync(CONFIG_TEMPLATE)) {
+  console.error("templates/conformance.config.json が見つかりません。キットのコピーが不完全です");
+  process.exit(2);
+}
+
 function inTarget(...segs) {
   return join(TARGET, ...segs);
 }
@@ -47,13 +56,11 @@ copyMdFiles(inKit(".claude", "commands"), inTarget(".claude", "commands"));
 console.log("▶ scripts/");
 cpSync(inKit("scripts"), inTarget("scripts"), { recursive: true });
 
-for (const f of ["conformance.config.json"]) {
-  if (existsSync(inTarget(f))) {
-    console.log(`  skip ${f} (既存)`);
-  } else {
-    cpSync(inKit(f), inTarget(f));
-    console.log(`▶ ${f}`);
-  }
+if (existsSync(inTarget("conformance.config.json"))) {
+  console.log("  skip conformance.config.json (既存)");
+} else {
+  cpSync(CONFIG_TEMPLATE, inTarget("conformance.config.json"));
+  console.log("▶ conformance.config.json");
 }
 
 mkdirSync(inTarget(".github", "workflows"), { recursive: true });

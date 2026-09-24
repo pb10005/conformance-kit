@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @covers AC-050
 /**
  * spec-lint.ts
  *

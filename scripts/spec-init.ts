@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @covers AC-051, AC-052
 /**
  * spec-init.ts
  *
@@ -40,6 +41,8 @@ try {
 } catch { /* specDir がまだ無い */ }
 const featId = `FEAT-${String(maxNo + 1).padStart(3, "0")}`;
 
+// 例示コメントは AS-XXX 表記にする。実在IDを書くとキット自身の走査で実在の仮定への参照として拾われる
+// @assumption AS-033
 const template = `# ${featId} — 要件の単一の正。実装・テスト・レビューはこれに従属する。
 #
 # 埋め方: 人間に質問する前に、AIが全項目を推測で埋め切ること。
@@ -57,7 +60,7 @@ intent: TBD
 out_of_scope:
   - TBD
 
-# 確信が持てないまま進める判断。コード側に @assumption AS-001 を残して回収可能にする。
+# 確信が持てないまま進める判断。コード側に @assumption AS-XXX を残して回収可能にする。
 # owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
 assumptions: []
 #  - id: AS-001

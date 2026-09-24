@@ -2,9 +2,7 @@
   "specDir": "specs",
   "srcDirs": [
     "src",
-    "tests",
-    "scripts",
-    "install.mjs"
+    "tests"
   ],
   "testFilePattern": "\\.(test|spec)\\.[cm]?[jt]sx?$",
   "ignore": [

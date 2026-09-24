@@ -5,7 +5,7 @@
 # 確信が持てない箇所は open_questions か assumptions に置き、空欄で残さない。
 id: FEAT-008
 title: "conformance-kit本体（scripts/・install.mjs）をキット自身の検査対象にする"
-status: draft # draft -> (spec-lint --gate freeze) -> frozen
+status: frozen # draft -> (spec-lint --gate freeze) -> frozen
 
 # 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
 intent: "conformance-kitのメンテナが、キット本体（scripts/配下のTypeScriptとinstall.mjs）を変更した時にも、利用者に課している規約（@covers\
@@ -21,7 +21,9 @@ out_of_scope:
   - "逆方向トレースの関数単位化。ファイル単位の@coversのままとする（README『既知の限界』の既存方針）"
   - ".claude/配下のプロンプト定義（*.md）と.github/workflows/*.ymlのトレース対象化。codeExtensionsは変更しない"
   - "examples/with-samples/をリポジトリ本体のsrcDirsに入れること。意図的な違反を含むサンプルであり、FEAT-002の分離方針を維持する"
-  - "spec-lint.ts・trace-matrix.tsの既存の検査コード（UNTRACED_CHANGE・DANGLING_AC・AMBIGUOUS_TERMを含む全検査コードの判定基準・重み）の変更"
+  - "spec-lint.ts・trace-matrix.tsの既存の検査コードの判定条件・level・重みの変更。ただしsrcDirsのエントリ解釈の拡張（AS-030）で走査対象が\
+    増え、結果としてfindingsが増減することは変更に含めない。新しい検査コードは追加しない（存在しないsrcDirsエントリは従来通り黙ってスキップする）"
+  - "srcDirsのエントリがrootの外を指す場合（`..` を含むパス・絶対パス）の扱い"
   - "spec-lint.ts・spec-init.ts・record-verdict.tsの全挙動の網羅的な遡及仕様化。@coversの根拠となる中核挙動のみをACにする"
   - "他specの仮決め（AS-019〜AS-029）の確定・期限延長。各specのオーナーが判断する"
   - "導入済みの外部ターゲットリポジトリのconformance.config.jsonの移行"
@@ -32,7 +34,8 @@ assumptions:
   - id: AS-030
     statement: "install.mjsはリポジトリ直下の単一ファイルでありディレクトリではないため、trace-matrix.tsのsrcDirsのエントリにファイルパスを許す。\
       エントリがファイルならそのファイル1件を、ディレクトリなら従来通り再帰的に走査する。install.mjsをscripts/へ移動する案は、READMEと導入手順の\
-      `node install.mjs` を壊すため採らない"
+      `node install.mjs` を壊すため採らない。走査対象はrootからの相対POSIXパスで重複を除き、同じファイルは1回だけ数える（\"scripts\" と\
+      \"scripts/lib\" のように重なるエントリを許す）。codeExtensions外のファイルを指すエントリは黙って無視する"
     status: confirmed
     owner: kohei-dev
     resolve_by: "2026-10-08"
@@ -58,6 +61,13 @@ assumptions:
     owner: kohei-dev
     resolve_by: "2026-10-08"
 
+  - id: AS-034
+    statement: "実在しないAC-ID / AS-IDを含むテスト用フィクスチャは、tests/のソースにその文字列がそのまま現れないように組み立てる（例:\
+      `\"AS-\" + \"777\"`）。tests/はsrcDirsに含まれるため、そのまま書くとリポジトリ自身のトレースでDANGLING_AC・UNRECORDED_ASSUMPTIONが出る"
+    status: assumed
+    owner: kohei-dev
+    resolve_by: "2026-10-08"
+
 # 人間の判断が要る未決事項。frozen にするには空にする（確定させるか assumptions へ降格）。
 open_questions: []
 
@@ -66,8 +76,8 @@ open_questions: []
 acceptance:
   - id: AC-044
     kind: functional
-    given: "srcDirsに実在するファイルパス（例: \"install.mjs\"）を含むconformance.config.jsonと、そのファイル内に要件に存在しない\
-      `@assumption AS-777` が書かれた一時ディレクトリで"
+    given: "srcDirsに実在するファイルパス（例: \"install.mjs\"）を含むconformance.config.json、specs/にfrozenのrequirements.yaml1件と、そのファイル内に要件に存在しない\
+      `@assumption AS-777` が書かれた一時ディレクトリで（フィクスチャ文字列はAS-034に従い組み立てる）"
     when: "`npx tsx scripts/trace-matrix.ts --root <tmp> --json` を実行する"
     then: "JSON出力のfindingsに code UNRECORDED_ASSUMPTION・ref AS-777 の項目を含む"
     priority: must
@@ -76,7 +86,7 @@ acceptance:
     attempts: 0
   - id: AC-045
     kind: functional
-    given: "srcDirsに存在しないパス（例: \"no-such-dir\"）と、違反の無いsrcディレクトリを含むconformance.config.jsonの一時ディレクトリで"
+    given: "srcDirsに存在しないパス（例: \"no-such-dir\"）と違反の無いsrcディレクトリを含むconformance.config.json、specs/にfrozenのrequirements.yaml1件を持つ一時ディレクトリで"
     when: "`npx tsx scripts/trace-matrix.ts --root <tmp>` を実行する"
     then: "実行エラー（exit 2）にならず、exit codeが0を返す"
     priority: must
@@ -103,9 +113,9 @@ acceptance:
     attempts: 0
   - id: AC-048
     kind: functional
-    given: "scripts/配下（scripts/lib/を含む）のすべての.tsファイルとinstall.mjsについて"
-    when: "各ファイルの本文を読む"
-    then: "すべてのファイルに `@covers AC-` で始まる記述が1件以上含まれる"
+    given: "scripts/配下（scripts/lib/を含む）でcodeExtensionsに該当するすべてのファイルとinstall.mjsについて"
+    when: "各ファイルから、trace-matrix.tsのCOVERS_REと同じ正規表現 `/@covers\\s+((?:AC-\\d{3,}[,\\s]*)+)/` でAC-IDを抽出する"
+    then: "すべてのファイルで抽出されたAC-IDが1件以上ある。抽出された全AC-IDはspecs/配下のstatus: draft以外のrequirements.yamlに存在する"
     priority: must
     verify: test
     status: pending
@@ -161,6 +171,72 @@ acceptance:
     when: "`record-verdict.ts --ac AC-900 --verdict fail --note ...` を2回実行する"
     then: "2回目はexit code 1を返す。requirements.yamlのAC-900はstatus: blockedに更新され、open_questionsに from: AC-900・status: open の項目を1件含む"
     priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-055
+    kind: functional
+    given: "git管理された一時ディレクトリで、srcDirsが [\"install.mjs\"]、specs/にfrozenのrequirements.yaml1件があり、基準コミットの後に@coversを\
+      持たないinstall.mjsを変更してコミットした状態で"
+    when: "`npx tsx scripts/trace-matrix.ts --root <tmp> --base <基準コミット> --strict --json` を実行する"
+    then: "findingsに code UNTRACED_CHANGE・ref install.mjs・level error の項目を含む。code UNSCANNED_CHANGE・ref install.mjs の項目は含まない。exit code 1を返す"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-056
+    kind: functional
+    given: "このリポジトリのルートで"
+    when: "`npx tsx scripts/trace-matrix.ts --json` を実行する"
+    then: "JSON出力のfindingsに、code ASSUMPTION_UNANCHOREDでrefがAS-019〜AS-026・AS-033のいずれかである項目を含まない（これらのタグはscripts/配下にあり、\
+      走査が実際に効いていることの観測点になる）"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-057
+    kind: functional
+    given: "本機能の変更が適用された後"
+    when: "specs/kit-self-ci-isolation/requirements.yamlとspecs/kit-self-ci-isolation/decisions.mdを読む"
+    then: "FEAT-002のAS-002のstatementに、srcDirsの不変がFEAT-008で上書きされた旨の追記を含む。decisions.mdにref AS-002のエントリがrecord-decision.ts\
+      の形式で1行記録されている"
+    priority: should
+    verify: inspection
+    status: pending
+    attempts: 0
+  - id: AC-058
+    kind: functional
+    given: "このリポジトリで"
+    when: "ルートのconformance.config.jsonとtemplates/conformance.config.jsonを読む"
+    then: "srcDirs以外のすべてのキーの値が一致する。templates側のsrcDirsは [\"src\", \"tests\"] と一致する"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-059
+    kind: functional
+    given: "templates/conformance.config.jsonが存在しないキットのコピーから、空の一時ディレクトリを対象に"
+    when: "`node <kitコピー>/install.mjs <tmp-target>` を実行する"
+    then: "exit code 2を返し、標準エラーに「templates/conformance.config.json が見つかりません」を出力する。<tmp-target>配下にファイルを1件も作成しない"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-060
+    kind: functional
+    given: "既にconformance.config.json（srcDirs: [\"app\"]）がある一時ディレクトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "<tmp-target>/conformance.config.jsonの内容は変わらない"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-061
+    kind: functional
+    given: "srcDirsが [\"scripts\", \"scripts/lib\"] で、scripts/lib/x.tsが要件に存在しないAC-IDを1件参照する一時ディレクトリで（フィクスチャ文字列はAS-034に従い組み立てる）"
+    when: "`npx tsx scripts/trace-matrix.ts --root <tmp> --json` を実行する"
+    then: "findingsに code DANGLING_AC の項目を1件だけ含む（重複しない）"
+    priority: should
     verify: test
     status: pending
     attempts: 0
