@@ -57,7 +57,7 @@ assumptions:
       main。現在のブランチ（作業ブランチになりがち）は使わない。gitの失敗（リポジトリでない・gitがPATHに無い）は(3)へ進み、gitの標準\
       エラーは表示しない。決めた結果を `default branch: <name> (<source>)` の1行で出力する。sourceは
       --default-branch / origin/HEAD / fallback のいずれか。fallbackの時は続けて
-      `--default-branch で指定できます` を1行出力する"
+      `--default-branch で指定できます` を1行出力する。origin/HEADが指すブランチ名がAS-046の受理条件に合わない場合も(3)へ進む"
     status: confirmed
     owner: pb10005
     resolve_by: "2026-10-09"
@@ -78,7 +78,7 @@ assumptions:
   - id: AS-047
     statement: "導入先に既存のconformance.config.jsonがあり、そのbaseRefが origin/<決めたブランチ名>
       と異なる場合、ファイルは書き換えずに`! 既存の conformance.config.json の baseRef (<既存値>) は既定ブランチ
-      <name> と異なります` を1行出力する。既存のconformance.ymlは内容を比較しない"
+      <name> と異なります` を1行出力する。既存のconformance.ymlは内容を比較しない。既存ファイルにbaseRefキーが無い場合と、JSONとして読めない場合は警告を出さない（後者の扱いはtrace-matrix.tsに任せる）"
     status: confirmed
     owner: pb10005
     resolve_by: "2026-10-09"
