@@ -44,14 +44,14 @@ assumptions:
       と、同じ .spec.ts
       拡張子を使う既存のJest/Mocha向けファイルでもdescribeタイトルが誤ってカバーとして数えられてしまい、CLAUDE.mdの既存規約（\
       describeは数えない）が壊れる"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-020
     statement: "test.describe(\"AC-XXX: ...\", () => {...})
       のタイトルでのAC-ID検出は、直下（1階層）のtest()呼び出しが1件以上あり、かつそのうち少なくとも1件が有効(非skip)である場合にのみ\
       「カバー」とする。直下にtest()が1件も無い空のdescribeブロックはカバーとして扱わない"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-021
@@ -60,7 +60,7 @@ assumptions:
       。2階層目以降のdescribeはout_of_scopeにより解析対象外のため、この伝播ルールも1階層目にのみ適用される）。逆に
       test.describe.only(...)
       は実行対象の絞り込みであってスキップではないため、カバー判定には影響を与えない（通常のdescribeと同じ扱い）"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-022
@@ -70,14 +70,14 @@ assumptions:
       ない不可視化のバグ）。`fixme`
       はskip相当として検出対象に追加する。`fail`（失敗することを期待して実行はする)は実行される点でskipと異なるため、今回はactive（\
       有効なカバー）として扱う"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
   - id: AS-023
     statement: "同一ファイル内でdescribeタイトルとtest()タイトルの両方にAC-IDが書かれている場合(同一IDでも別IDでも)、両方とも\
       独立してカバー判定に加える(和集合)。describe側とtest()側で優先順位や排他は設けない。これは既存のJS/TS検出(test()のみ)\
       にdescribe検出を追加する形の拡張であり、既存のtest()単位の判定に一切変更を加えないための最も単純な合成方法である"
-    status: assumed
+    status: confirmed
     owner: pb10005
     resolve_by: "2026-09-25"
 

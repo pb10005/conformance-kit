@@ -6,7 +6,7 @@
  * AI駆動開発トレンドの調査結果（採用/見送り/却下の判断）を、プロジェクト全体で1つの
  * TREND_BACKLOG.md に追記する。record-decision.ts（spec単位のdecisions.md）とは記録先が異なる。
  * 特定specの要件変更を伴わない、プロジェクト横断の技術選定判断を扱う。
- * @assumption AS-024
+ * （FEAT-007 AS-024）
  *
  * usage:
  *   npx tsx scripts/record-trend.ts --tech <名称> --decision adopt|defer|reject --reason "..." [--revisit "..."]
@@ -46,14 +46,14 @@ if ((decision === "defer" || decision === "reject") && !revisitRaw) {
 }
 
 // adoptでrevisit省略時は、未設定であることが後から判別できるよう固定文言を補う
-// @assumption AS-025
+// （FEAT-007 AS-025）
 const revisit = revisitRaw || "(再検討条件なし)";
 
 const backlogPath = join(root, "TREND_BACKLOG.md");
 const today = new Date().toISOString().slice(0, 10);
 const oneLine = (s: string) => s.replace(/\s*\n\s*/g, " ");
 // エントリは1行の箇条書き。追記専用、初回作成時のみ見出し行を付与する
-// @assumption AS-026
+// （FEAT-007 AS-026）
 const entry = `- ${today} [${tech}] ${decision} — ${oneLine(reason)} / 再検討条件: ${oneLine(revisit)}\n`;
 
 if (existsSync(backlogPath)) {

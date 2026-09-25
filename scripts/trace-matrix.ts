@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016, AC-021, AC-023, AC-029, AC-030, AC-031, AC-032, AC-033, AC-034, AC-035
+// @covers AC-002, AC-005, AC-006, AC-010, AC-011, AC-016, AC-021, AC-023, AC-029, AC-030, AC-031, AC-032, AC-033, AC-034, AC-035, AC-044, AC-045, AC-047, AC-055, AC-061
 /**
  * trace-matrix.ts
  *
@@ -13,6 +13,8 @@
  * コメント・describe・skip/todo/xit は数えない。
  * `.py` ファイルは代わりに pytest 用の検出（トップレベル関数直後のdocstring）を使う。
  * 拡張子ごとに使う検出ロジックを完全に分けており、混在しない（FEAT-004 AC-021）。
+ * srcDirs のエントリはディレクトリ（再帰走査）でもファイル（その1件のみ）でもよい。重なるエントリは
+ * rootからの相対POSIXパスで重複を除く（FEAT-008 AS-030: リポジトリ直下の install.mjs をキット自身の検査対象にするため）。
  * @playwright/test をimportしているJS/TSファイルは、describeタイトル由来のAC-ID検出を追加で行う（FEAT-006 AC-029〜035）。
  *
  * usage:
@@ -20,7 +22,7 @@
  *
  * --root <dir> : conformance.config.json / specDir / srcDirs の探索基準を <dir> にする。
  *                git diff は常に実行時のcwdから `--relative=<dir>` で取得し、<dir> 相対パスに揃える
- *                （@assumption AS-005: examples/with-samples/ のような別ツリーを検査するため）。
+ *                （FEAT-002 AS-005: examples/with-samples/ のような別ツリーを検査するため）。
  * exit:
  *   0 = 適合  1 = 不適合(error あり)  2 = 実行エラー
  */
@@ -114,6 +116,14 @@ function* walk(dir: string): Generator<string> {
   }
 }
 
+// srcDirs の1エントリを展開する。ファイルならその1件、ディレクトリなら再帰、存在しなければ何も返さない
+function* walkEntry(p: string): Generator<string> {
+  let st;
+  try { st = statSync(p); } catch { return; }
+  if (st.isDirectory()) yield* walk(p);
+  else yield p;
+}
+
 const findings: Finding[] = [];
 const F = (level: Level, code: string, ref: string, message: string) => findings.push({ level, code, ref, message });
 
@@ -164,9 +174,13 @@ interface FileScan {
   assumptions: Set<string>;
 }
 const files: FileScan[] = [];
-for (const dir of cfg.srcDirs) {
-  for (const f of walk(join(root, dir))) {
+const seen = new Set<string>();
+for (const entry of cfg.srcDirs) {
+  for (const f of walkEntry(join(root, entry))) {
     if (!extSet.has(extname(f))) continue;
+    const key = toPosixPath(relative(root, f));
+    if (seen.has(key)) continue;
+    seen.add(key);
     const text = readFileSync(f, "utf8");
     const covers = new Set<string>();
     for (const m of text.matchAll(COVERS_RE)) for (const id of m[1].match(AC_RE) ?? []) covers.add(id);
@@ -186,14 +200,14 @@ for (const dir of cfg.srcDirs) {
         for (const id of m[5].match(AC_RE) ?? []) (skipped ? skippedTitles : activeTitles).add(id);
       }
     }
-    const posixPath = toPosixPath(relative(root, f));
+    const posixPath = key;
     files.push({
       path: posixPath,
       // testFilePattern はパス区切りに "/" を使う前提(例: "(^|/)test_[^/]+\.py$")で書かれうるため、
       // Windowsのバックスラッシュを含む生パス f ではなく正規化済みの posixPath に対して判定する
       // （FEAT-004のWindows実機検証で、この判定漏れによりpytestのテストファイルが isTest=false に
       // なる不具合として発見された。JSの既存パターンはファイル名末尾のみを見るため today まで顕在化しなかった）
-      // @assumption AS-014
+      // （FEAT-004 AS-014）
       isTest: testRe.test(posixPath),
       mentions: new Set(text.match(AC_RE) ?? []),
       activeTitles, skippedTitles, covers,

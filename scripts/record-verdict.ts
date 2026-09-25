@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @covers AC-053, AC-054
 /**
  * record-verdict.ts
  *

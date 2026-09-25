@@ -29,7 +29,9 @@ assumptions:
   - id: AS-002
     statement: "conformance.config.json の specDir(=specs) / srcDirs(=src, tests)
       は変更しない。examples/ を新たに ignore
-      に加える必要はない（specDir/srcDirsの外にあるため、既存の発見ロジック上そもそもスキャン対象に入らない）"
+      に加える必要はない（specDir/srcDirsの外にあるため、既存の発見ロジック上そもそもスキャン対象に入らない）。\
+      [追記 2026-09-24] srcDirsの不変はFEAT-008（specs/kit-self-dogfooding/）で上書きされ、scriptsとinstall.mjsが追加された。\
+      examples/をスキャン対象外とする点は引き続き有効"
     status: confirmed
     owner: kohei-dev
     resolve_by: "2026-09-19"

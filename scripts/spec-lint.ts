@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @covers AC-050, AC-088, AC-089, AC-090
 /**
  * spec-lint.ts
  *
@@ -57,7 +58,9 @@ const AMBIGUOUS: [string, RegExp][] = [
   ["きちんと", jp("きちんと")], ["十分な", jp("十分な")], ["スムーズ", jp("スムーズ")], ["ストレスなく", jp("ストレスなく")],
   ["モダン", jp("モダン")], ["リッチ", jp("リッチ")], ["セキュアに", jp("セキュアに")], ["堅牢", jp("堅牢")],
   ["スケーラブル", jp("スケーラブル")], ["最適化する", jp("最適化する")], ["など", jp("など")],
-  ["等", jp("等", "[しくさ]")], ["その他", jp("その他")], ["一部の", jp("一部の")],
+  // 「等」は熟語の一部（冪等・べき等・同等・等価…）を出現ごとに除外する。「上等」「高等」「初等」は
+  // 「画面上等」のような名詞＋等と区別できないので除外しない（FEAT-010 AS-045）
+  ["等", /(?<!冪|べき|同|対|平|均|劣|優|何)等(?![しくさ価号分級式辺])/], ["その他", jp("その他")], ["一部の", jp("一部の")],
   ["appropriately", en("appropriately")], ["properly", en("properly")], ["fast", en("fast")],
   ["quickly", en("quickly")], ["efficiently", en("efficiently")], ["user-friendly", en("user-friendly")],
   ["intuitive", en("intuitive")], ["robust", en("robust")], ["scalable", en("scalable")],

@@ -35,6 +35,7 @@ scripts/spec-lint.ts                要件の機械検査と freeze 遷移ゲー
 scripts/trace-matrix.ts             順方向・逆方向・仮定のトレース検査
 scripts/record-verdict.ts           検証結果の書き戻しと自動エスカレーション
 scripts/gate.ts                     トレース + テスト + 型（bash不使用、Windows対応）
+templates/conformance.config.json   導入先へ配る設定（srcDirs: src, tests）
 .claude/skills/spec-intake/         要件抽出の手順（Claude が自動で参照）
 .claude/skills/conformance-verify/  検証ループの手順（同上）
 .claude/agents/spec-challenger.md   要件を敵対的にレビューするサブエージェント
@@ -60,7 +61,7 @@ npm i yaml && npm i -D tsx typescript @types/node
 PowerShell/cmd.exe でも Git Bash や WSL を別途用意せずにそのまま動く（`gate.ts`/`install.mjs`
 はどちらも bash に依存しない）。
 
-`install.mjs` は `.claude/` `scripts/` `conformance.config.json` `.github/workflows/` を配置し、
+`install.mjs` は `.claude/` `scripts/` `conformance.config.json`（`templates/` の配布用）`.github/workflows/` を配置し、
 既存の `CLAUDE.md` があれば末尾に追記、`package.json` の `scripts` に不足分だけ追加する。
 既存ファイルは上書きせず、二重実行しても安全。
 
@@ -91,7 +92,7 @@ npx tsx scripts/record-verdict.ts --ac AC-002 --verdict fail --note "期限切�
 | `PASS_WITHOUT_EVIDENCE` | 順 | pass なのに evidence が無い（手編集の疑い） | error |
 | `AC_FAILING` / `AC_BLOCKED` | 順 | fail のまま / 人間の判断待ち | error |
 | `UNTRACED_CHANGE` | 逆 | 変更されたがどのACにも紐づかない | warn（`--strict` で error） |
-| `UNSCANNED_CHANGE` | 逆 | srcDirs 外のコードが変更された | warn |
+| `UNSCANNED_CHANGE` | 逆 | srcDirs 外のコードが変更された（srcDirs にはディレクトリもファイルも書ける） | warn |
 | `DANGLING_AC` | 逆 | 存在しないACを参照 | error |
 | `DUPLICATE_ID` | 要件 | AC/AS の ID がリポジトリ内で重複 | error |
 | `UNRECORDED_ASSUMPTION` | 仮定 | 要件に無い仮定がコードに埋まっている | error |
@@ -127,6 +128,15 @@ npx tsx scripts/record-verdict.ts --ac AC-002 --verdict fail --note "期限切�
 `frozen` / `reconciling` の要件は、`--gate freeze` の有無にかかわらず常に厳格判定になる。凍結済みの要件が曖昧なまま warn で通過することはない。
 
 曖昧語は正規表現で判定しており、「等しい」「未定義」「高速道路」のような正当な語は拾わない。
+
+## キット自身への適用（ドッグフーディング）
+
+このリポジトリ自身も conformance-kit で検査している（`specs/kit-self-dogfooding/`、FEAT-008）。ルートの
+`conformance.config.json` は `srcDirs` に `scripts` と `install.mjs` を含み、キット本体の変更にも `@covers` 必須・
+`@assumption` の相互参照・存在しないAC参照の検出が効く。導入先へ配るのは `templates/conformance.config.json`
+（`srcDirs: ["src", "tests"]`）の方で、キット用の設定は配らない（配布済み `scripts/` のキット用 `@covers` が導入先で
+`DANGLING_AC` になるため）。実在しないAC/AS-IDをテストのフィクスチャに使う場合は `"AC-" + "900"` のように組み立て、
+リポジトリ自身のトレースに拾わせない。
 
 ## 既知の限界・未着手
 

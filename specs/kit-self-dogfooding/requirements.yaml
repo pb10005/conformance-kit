@@ -1,0 +1,330 @@
+# FEAT-008 — 要件の単一の正。実装・テスト・レビューはこれに従属する。
+#
+# 埋め方: 人間に質問する前に、AIが全項目を推測で埋め切ること。
+# 人間の仕事は白紙を埋めることではなく、埋まったものを否定・修正することにある。
+# 確信が持てない箇所は open_questions か assumptions に置き、空欄で残さない。
+id: FEAT-008
+title: "conformance-kit本体（scripts/・install.mjs）をキット自身の検査対象にする"
+status: frozen # draft -> (spec-lint --gate freeze) -> frozen
+
+# 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
+intent: "conformance-kitのメンテナが、キット本体（scripts/配下のTypeScriptとinstall.mjs）を変更した時にも\
+  、利用者に課している規約（@covers必須・@assumptionと要件の相互参照・存在しないAC参照の検出）が自分自身に効くようにする。現状のconf\
+  ormance.config.jsonのsrcDirsはsrc・testsのみで、このリポジトリにsrc/は存在しない。そのためキット本体への変更はUNS\
+  CANNED_CHANGE警告止まりで、scripts/に書かれた@assumptionも読まれず（record-trend.tsの@assumption
+  AS-024がASSUMPTION_UNANCHOREDと誤報される）、確定済みなのに残った@assumptionタグ（AS-005、AS-014）も検出\
+  されていない。FEAT-002のout_of_scopeで『別機能として扱う』とされたドッグフーディングを本機能として実施する。これに伴いFEAT-002\
+  のAS-002（srcDirsは変更しない）は本機能の範囲では上書きされる。"
+
+# 過剰実装を止める外周。draft を抜けるには最低1件必要。
+# 「やらないと決めたこと」であって「将来やること」ではない。
+out_of_scope:
+  - "逆方向トレースの関数単位化。ファイル単位の@coversのままとする（README『既知の限界』の既存方針）"
+  - ".claude/配下のプロンプト定義（*.md）と.github/workflows/*.ymlのトレース対象化。codeExtensionsは変更\
+    しない"
+  - "examples/with-samples/をリポジトリ本体のsrcDirsに入れること。意図的な違反を含むサンプルであり、FEAT-002の分離方\
+    針を維持する"
+  - "spec-lint.ts・trace-matrix.tsの既存の検査コードの判定条件・level・重みの変更。ただしsrcDirsのエントリ解釈の拡\
+    張（AS-030）で走査対象が増え、結果としてfindingsが増減することは変更に含めない。新しい検査コードは追加しない（存在しないsrcDirsエ\
+    ントリは従来通り黙ってスキップする）"
+  - "srcDirsのエントリがrootの外を指す場合（`..` を含むパス・絶対パス）の扱い"
+  - "spec-lint.ts・spec-init.ts・record-verdict.tsの全挙動の網羅的な遡及仕様化。@coversの根拠となる中核挙\
+    動のみをACにする"
+  - "他specの仮決め（AS-019〜AS-029）の確定・期限延長。各specのオーナーが判断する"
+  - "導入済みの外部ターゲットリポジトリのconformance.config.jsonの移行"
+
+# 確信が持てないまま進める判断。コード側に @assumption AS-XXX を残して回収可能にする。
+# owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
+assumptions:
+  - id: AS-030
+    statement: "install.mjsはリポジトリ直下の単一ファイルでありディレクトリではないため、trace-matrix.tsのsrcDirsのエ\
+      ントリにファイルパスを許す。エントリがファイルならそのファイル1件を、ディレクトリなら従来通り再帰的に走査する。install.mjsをscrip\
+      ts/へ移動する案は、READMEと導入手順の`node install.mjs`
+      を壊すため採らない。走査対象はrootからの相対POSIXパスで重複を除き、同じファイルは1回だけ数える（\"scripts\"
+      と\"scripts/lib\" のように重なるエントリを許す）。codeExtensions外のファイルを指すエントリは黙って無視する"
+    status: confirmed
+    owner: kohei-dev
+    resolve_by: "2026-10-08"
+  - id: AS-031
+    statement: "install.mjsは現在キット自身のconformance.config.jsonをそのまま導入先へコピーしている。本機能でsrc\
+      Dirsにscripts/install.mjsを加えると、導入先で配布済みscripts/のキット用@coversがDANGLING_ACになる\
+      。これを避けるため、配布用の設定をtemplates/conformance.config.jsonとして分離し（内容は変更前のconforman\
+      ce.config.jsonと同一）、install.mjsはこちらをコピーする"
+    status: confirmed
+    owner: kohei-dev
+    resolve_by: "2026-10-08"
+  - id: AS-032
+    statement: "@coversを持たないキット本体のファイル（spec-lint.ts、spec-init.ts、record-verdict.ts）\
+      のために、本specに遡及的な受入基準を各ファイル1〜2件だけ起こして@coversの根拠にする。対象は各スクリプトの存在理由である中核挙動（fr\
+      eezeゲートでの昇格、FEAT採番と上書き拒否、証拠なきpassの拒否と2回失敗時の自動blocked化）に限る"
+    status: confirmed
+    owner: kohei-dev
+    resolve_by: "2026-10-08"
+  - id: AS-033
+    statement: "spec-init.tsのテンプレートにある例示コメント『コード側に @assumption AS-001
+      を残して』は、キット本体を走査すると実在のAS-001への参照として誤検出される（STALE_ASSUMPTION_TAG）。例示文言を
+      `@assumption AS-XXX`
+      に言い換える。生成されるrequirements.yamlのコメント文言が変わるだけで、YAMLとしての内容は変わらない"
+    status: confirmed
+    owner: kohei-dev
+    resolve_by: "2026-10-08"
+
+  - id: AS-034
+    statement: "実在しないAC-ID /
+      AS-IDを含むテスト用フィクスチャは、tests/のソースにその文字列がそのまま現れないように組み立てる（例:`\"AS-\" +
+      \"777\"`）。tests/はsrcDirsに含まれるため、そのまま書くとリポジトリ自身のトレースでDANGLING_AC・UNRECORDE\
+      D_ASSUMPTIONが出る"
+    status: confirmed
+    owner: kohei-dev
+    resolve_by: "2026-10-08"
+
+# 人間の判断が要る未決事項。frozen にするには空にする（確定させるか assumptions へ降格）。
+open_questions: []
+
+# 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
+# then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
+acceptance:
+  - id: AC-044
+    kind: functional
+    given: "srcDirsに実在するファイルパス（例:
+      \"install.mjs\"）を含むconformance.config.json、specs/にfrozenのrequirements.yam\
+      l1件と、そのファイル内に要件に存在しない`@assumption AS-777`
+      が書かれた一時ディレクトリで（フィクスチャ文字列はAS-034に従い組み立てる）"
+    when: "`npx tsx scripts/trace-matrix.ts --root <tmp> --json` を実行する"
+    then: "JSON出力のfindingsに code UNRECORDED_ASSUMPTION・ref AS-777 の項目を含む"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: ファイルエントリ(install.mjs)の未記録@assumptionがUNRECORDED_ASSUMPTION/ref一致で1件出ることを検証。17/17
+      pass
+    evidence: tests/kit-self-dogfooding.test.ts:81
+  - id: AC-045
+    kind: functional
+    given: "srcDirsに存在しないパス（例:
+      \"no-such-dir\"）と違反の無いsrcディレクトリを含むconformance.config.json、specs/にfrozenのr\
+      equirements.yaml1件を持つ一時ディレクトリで"
+    when: "`npx tsx scripts/trace-matrix.ts --root <tmp>` を実行する"
+    then: "実行エラー（exit 2）にならず、exit codeが0を返す"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: 存在しないsrcDirsエントリ+違反なしsrcでexit!=2かつexit 0を検証
+    evidence: tests/kit-self-dogfooding.test.ts:90
+  - id: AC-046
+    kind: functional
+    given: "このリポジトリのルートのconformance.config.jsonで"
+    when: "srcDirsを読む"
+    then: "srcDirsに \"scripts\" と \"install.mjs\" を含む"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: ルート設定のsrcDirsにscriptsとinstall.mjsの両方を含むことを検証
+    evidence: tests/kit-self-dogfooding.test.ts:100
+  - id: AC-047
+    kind: functional
+    given: "このリポジトリのルートで"
+    when: "`npx tsx scripts/trace-matrix.ts --json` を実行する"
+    then: "JSON出力のfindingsに、codeがSTALE_ASSUMPTION_TAG・DANGLING_AC・UNRECORDED_ASSUMP\
+      TIONのいずれかである項目を含まない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: リポジトリ自身のtrace-matrix --jsonで3コードが0件であることを検証
+    evidence: tests/kit-self-dogfooding.test.ts:106
+  - id: AC-048
+    kind: functional
+    given: "scripts/配下（scripts/lib/を含む）でcodeExtensionsに該当するすべてのファイルとinstall.mjsについて"
+    when: "各ファイルから、trace-matrix.tsのCOVERS_REと同じ正規表現
+      `/@covers\\s+((?:AC-\\d{3,}[,\\s]*)+)/` でAC-IDを抽出する"
+    then: "すべてのファイルで抽出されたAC-IDが1件以上ある。抽出された全AC-IDはspecs/配下のstatus:
+      draft以外のrequirements.yamlに存在する"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: scripts/全体+install.mjsで同一正規表現の@covers抽出>=1件かつ全IDがdraft以外のspecに実在することを検証
+    evidence: tests/kit-self-dogfooding.test.ts:112
+  - id: AC-049
+    kind: functional
+    given: "srcDirsに \"scripts\" と \"install.mjs\" を含む設定を持つキットのリポジトリから、空の一時ディレクトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "<tmp-target>/conformance.config.jsonのsrcDirsが [\"src\", \"tests\"] と一致する"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: 実キット(install.mjs)から空ターゲットへ導入しsrcDirsが[src,tests]とdeepEqualを検証
+    evidence: tests/kit-self-dogfooding.test.ts:144
+  - id: AC-050
+    kind: functional
+    given: "status:
+      draftで、thenにspec-lint.tsの曖昧語辞書（AMBIGUOUS）に載っている語を1つ含むACを持つrequirements.ya\
+      mlの一時ディレクトリで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --gate freeze` を実行する"
+    then: "AMBIGUOUS_TERMがerror（✗）として出力され、exit code 1を返す"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: draft+曖昧語(適切に)でfreezeゲート時に✗ [AMBIGUOUS_TERM]出力とexit 1を検証
+    evidence: tests/kit-self-dogfooding.test.ts:156
+  - id: AC-051
+    kind: functional
+    given: "specs/配下に id: FEAT-003 のrequirements.yamlだけが存在する一時ディレクトリで"
+    when: "`npx tsx scripts/spec-init.ts new-feature --title \"x\"` を実行する"
+    then: "specs/new-feature/requirements.yamlが作成され、その id が FEAT-004、status が draft
+      と一致する"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: FEAT-003のみの状態で作成ファイルの存在・id FEAT-004・status draftを検証
+    evidence: tests/kit-self-dogfooding.test.ts:172
+  - id: AC-052
+    kind: functional
+    given: "specs/existing/requirements.yamlが既に存在する一時ディレクトリで"
+    when: "`npx tsx scripts/spec-init.ts existing` を実行する"
+    then: "exit code 2を返し、既存のrequirements.yamlの内容は変わらない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: exit 2と既存ファイル内容の不変(バイト一致)を検証
+    evidence: tests/kit-self-dogfooding.test.ts:189
+  - id: AC-053
+    kind: functional
+    given: "AC-900（status: pending）を持つrequirements.yamlの一時ディレクトリで"
+    when: "`npx tsx scripts/record-verdict.ts --ac AC-900 --verdict pass` を
+      --evidence なしで実行する"
+    then: "exit code 2を返し、requirements.yamlの内容は変わらない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    evidence: tests/kit-self-dogfooding.test.ts:203
+  - id: AC-054
+    kind: functional
+    given: "AC-900（attempts: 0）を持つrequirements.yamlの一時ディレクトリで"
+    when: "`record-verdict.ts --ac AC-900 --verdict fail --note ...` を2回実行する"
+    then: "2回目はexit code 1を返す。requirements.yamlのAC-900はstatus:
+      blockedに更新され、open_questionsに from: AC-900・status: open の項目を1件含む"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: 2回目failでexit 1、status blocked、open_questionsのfrom/status open項目が1件を検証
+    evidence: tests/kit-self-dogfooding.test.ts:218
+  - id: AC-055
+    kind: functional
+    given: "git管理された一時ディレクトリで、srcDirsが
+      [\"install.mjs\"]、specs/にfrozenのrequirements.yaml1件があり、基準コミットの後に@coversを持\
+      たないinstall.mjsを変更してコミットした状態で"
+    when: "`npx tsx scripts/trace-matrix.ts --root <tmp> --base <基準コミット> --strict
+      --json` を実行する"
+    then: "findingsに code UNTRACED_CHANGE・ref install.mjs・level error の項目を含む。code
+      UNSCANNED_CHANGE・ref install.mjs の項目は含まない。exit code 1を返す"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: UNTRACED_CHANGE/ref install.mjs/level error の存在、UNSCANNED_CHANGE不在、exit 1
+      を全て検証
+    evidence: tests/kit-self-dogfooding.test.ts:241
+  - id: AC-056
+    kind: functional
+    given: "このリポジトリのルートで"
+    when: "`npx tsx scripts/trace-matrix.ts --json` を実行する"
+    then: "JSON出力のfindingsに、code
+      ASSUMPTION_UNANCHOREDでrefがAS-019〜AS-026・AS-033のいずれかである項目を含まない（これらのタグはscri\
+      pts/配下にあり、走査が実際に効いていることの観測点になる）"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: リポジトリ自身のトレースでAS-019〜026・AS-033のASSUMPTION_UNANCHOREDが0件を検証
+    evidence: tests/kit-self-dogfooding.test.ts:264
+  - id: AC-057
+    kind: functional
+    given: "本機能の変更が適用された後"
+    when: "specs/kit-self-ci-isolation/requirements.yamlとspecs/kit-self-ci-isolatio\
+      n/decisions.mdを読む"
+    then: "FEAT-002のAS-002のstatementに、srcDirsの不変がFEAT-008で上書きされた旨の追記を含む。decisions.m\
+      dにref AS-002のエントリがrecord-decision.tsの形式で1行記録されている"
+    priority: should
+    verify: inspection
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: "inspection: AS-002
+      statementにFEAT-008による上書き追記あり。decisions.mdにrecord-decision.ts:44/49の形式(見出し\
+      +'- 日付 [AS-002] 理由')で1行記録"
+    evidence: specs/kit-self-ci-isolation/requirements.yaml:33,
+      specs/kit-self-ci-isolation/decisions.md:3
+  - id: AC-058
+    kind: functional
+    given: "このリポジトリで"
+    when: "ルートのconformance.config.jsonとtemplates/conformance.config.jsonを読む"
+    then: "srcDirs以外のすべてのキーの値が一致する。templates側のsrcDirsは [\"src\", \"tests\"] と一致する"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: srcDirs以外のキーのdeepEqualとtemplates側srcDirs=[src,tests]を検証
+    evidence: tests/kit-self-dogfooding.test.ts:271
+  - id: AC-059
+    kind: functional
+    given: "templates/conformance.config.jsonが存在しないキットのコピーから、空の一時ディレクトリを対象に"
+    when: "`node <kitコピー>/install.mjs <tmp-target>` を実行する"
+    then: "exit code 2を返し、標準エラーに「templates/conformance.config.json
+      が見つかりません」を出力する。<tmp-target>配下にファイルを1件も作成しない"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: templates欠落キットからexit 2・stderr文言・ターゲット空を検証
+    evidence: tests/kit-self-dogfooding.test.ts:280
+  - id: AC-060
+    kind: functional
+    given: "既にconformance.config.json（srcDirs: [\"app\"]）がある一時ディレクトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "<tmp-target>/conformance.config.jsonの内容は変わらない"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: 既存設定(srcDirs [app])の内容不変を検証
+    evidence: tests/kit-self-dogfooding.test.ts:295
+  - id: AC-061
+    kind: functional
+    given: "srcDirsが [\"scripts\", \"scripts/lib\"]
+      で、scripts/lib/x.tsが要件に存在しないAC-IDを1件参照する一時ディレクトリで（フィクスチャ文字列はAS-034に従い組み立てる\
+      ）"
+    when: "`npx tsx scripts/trace-matrix.ts --root <tmp> --json` を実行する"
+    then: "findingsに code DANGLING_AC の項目を1件だけ含む（重複しない）"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-24
+    note: 重なるsrcDirs[scripts,scripts/lib]でDANGLING_ACがちょうど1件を検証
+    evidence: tests/kit-self-dogfooding.test.ts:309

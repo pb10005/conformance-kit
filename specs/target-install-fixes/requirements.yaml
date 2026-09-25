@@ -1,0 +1,336 @@
+# FEAT-010 — 要件の単一の正。実装・テスト・レビューはこれに従属する。
+#
+# 埋め方: 人間に質問する前に、AIが全項目を推測で埋め切ること。
+# 人間の仕事は白紙を埋めることではなく、埋まったものを否定・修正することにある。
+# 確信が持てない箇所は open_questions か assumptions に置き、空欄で残さない。
+id: FEAT-010
+title: "導入先への配布物を修正する（ankb導入フィードバック）"
+status: frozen # draft -> (spec-lint --gate freeze) -> frozen
+
+# 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
+intent: "conformance-kitを外部リポジトリ（ankb）へ導入した利用者が、導入直後に手作業で直す必要があった3点を、キット側で解消する。\
+  (1)
+  install.mjsがキット自身の開発用ファイル（CIのsamples-selfcheck/windows-selfcheckジョブ、/trend-wa\
+  tchコマンド、record-trend.ts）まで配置する。(2)
+  配置されるCI定義のブランチがmaster、conformance.config.jsonのbaseRefがorigin/masterに固定されており、m\
+  ainをデフォルトブランチとするリポジトリでは逆方向トレースとCIのpushトリガーが機能しない。(3)
+  spec-lintが「冪」「べき」の直後のU+7B49を曖昧語（U+7B49、漢字1字の「とう」）として誤検出し、利用者が「idempotent」と書き換\
+  えて回避している。"
+
+# 過剰実装を止める外周。draft を抜けるには最低1件必要。
+# 「やらないと決めたこと」であって「将来やること」ではない。
+out_of_scope:
+  - "キット自身のリポジトリの.github/workflows/conformance.yml・conformance.config.jsonのブランチ\
+    設定の変更（キット自身のデフォルトブランチはmasterのまま）"
+  - "導入済みリポジトリに過去の実行で配置されたキット専用ファイル（record-trend.ts・trend-watch.md・既存のconforman\
+    ce.yml）の削除・書き換え・移行"
+  - "曖昧語辞書のU+7B49以外の語の判定条件の変更、および辞書の外部設定化"
+  - "GitHub Actions以外のCIプロバイダ向けの定義の配布"
+  - "導入先のデフォルトブランチをGitHub APIを含むネットワーク経由で問い合わせること（ローカルのgit情報だけで判定する）"
+  - "対象がgitリポジトリのサブディレクトリ（モノレポ）の場合に、親リポジトリとは別のデフォルトブランチを判定すること（親リポジトリのorigin/HE\
+    ADをそのまま使う）"
+  - "install.mjsの既存の上書き方針（.claude/とscripts/は常に更新、それ以外の既存ファイルは上書きしない）の変更。既存ファイルと\
+    検出したブランチの不一致は警告するだけで書き換えない"
+
+# 確信が持てないまま進める判断。コード側に @assumption AS-XXX を残して回収可能にする。
+# owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
+assumptions:
+  - id: AS-042
+    statement: "キット専用ファイルは install.mjs
+      内の固定リスト（.claude/commands/trend-watch.md、scripts/record-trend.ts）で除外する。キット\
+      専用ファイルを追加する時はこのリストに加える。.claude/skills/配下とscripts/lib/配下にはキット専用ファイルは現在無い"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-10-09"
+  - id: AS-043
+    statement: "導入先へ配るCI定義は templates/conformance.yml
+      として分離し、gateジョブだけを含める。ブランチ名の箇所はプレースホルダ__DEFAULT_BRANCH__
+      とし、install.mjsが置換する。templates/conformance.config.jsonはFEAT-008
+      AC-058のためキット自身の設定とbaseRefを含めて一致させたまま残し、install.mjsがJSONとして読み込んでbaseRefだけを\
+      origin/<ブランチ名>に書き換えて出力する"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-10-09"
+  - id: AS-044
+    statement: "導入先のデフォルトブランチは次の順で決める: (1) `--default-branch <name>` 引数、(2) 導入先で
+      `git symbolic-ref refs/remotes/origin/HEAD` が返すブランチ、(3)
+      main。現在のブランチ（作業ブランチになりがち）は使わない。gitの失敗（リポジトリでない・gitがPATHに無い）は(3)へ進み、gitの標準\
+      エラーは表示しない。決めた結果を `default branch: <name> (<source>)` の1行で出力する。sourceは
+      --default-branch / origin/HEAD / fallback のいずれか。fallbackの時は続けて
+      `--default-branch で指定できます`
+      を1行出力する。origin/HEADが指すブランチ名がAS-046の受理条件に合わない場合も(3)へ進む"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-09"
+  - id: AS-045
+    statement: "曖昧語U+7B49は、直前が「冪」「べき」「同」「対」「平」「均」「劣」「優」「何」、または直後が「し」「く」「さ」「価」「号」「分」\
+      「級」「式」「辺」の場合にその出現だけを除外する。「上」「高」「初」は名詞＋U+7B49（例:
+      「画面上」の直後）と区別できないため除外しない。判定は出現ごとに行い、同じ文中に除外される出現と除外されない出現があれば後者を検出する"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-09"
+  - id: AS-046
+    statement: "install.mjsの引数は位置に依存せずに解釈する（`--with-samples` と `--default-branch
+      <name>` は順不同）。`--default-branch` の値は`[A-Za-z0-9._/-]+`
+      に一致し、先頭が「-」でなく「..」を含まないものだけを受け付ける。値が無い・不正な場合は、何も書き込む前にexit 2で終了する"
+    status: assumed
+    owner: pb10005
+    resolve_by: "2026-10-09"
+  - id: AS-047
+    statement: "導入先に既存のconformance.config.jsonがあり、そのbaseRefが origin/<決めたブランチ名>
+      と異なる場合、ファイルは書き換えずに`! 既存の conformance.config.json の baseRef (<既存値>) は既定ブランチ
+      <name> と異なります`
+      を1行出力する。既存のconformance.ymlは内容を比較しない。既存ファイルにbaseRefキーが無い場合と、JSONとして読めない場合は\
+      警告を出さない（後者の扱いはtrace-matrix.tsに任せる）"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-09"
+
+# 人間の判断が要る未決事項。frozen にするには空にする（確定させるか assumptions へ降格）。
+open_questions: []
+
+# 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
+# then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
+acceptance:
+  - id: AC-081
+    kind: functional
+    given: "空の一時ディレクトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "<tmp-target>/.claude/commands/trend-watch.md と
+      <tmp-target>/scripts/record-trend.ts はどちらも作成されない（存在しない）"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: 両ファイルの非存在をexistsSyncで検証、node --test 18/18 pass
+    evidence: tests/target-install-fixes.test.ts:90
+  - id: AC-082
+    kind: functional
+    given: "空の一時ディレクトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: ".claude/commands/配下にspec.md・freeze.md・verify.md・reconcile.md、scripts/配下に\
+      spec-init.ts・spec-lint.ts・trace-matrix.ts・record-verdict.ts・record-decisi\
+      on.ts・gate.tsとキットのscripts/lib/の全ファイルが作成される"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: commands 4件・scripts 6件・scripts/lib全件の存在を検証
+    evidence: tests/target-install-fixes.test.ts:98
+  - id: AC-083
+    kind: functional
+    given: "空の一時ディレクトリを対象に"
+    when: "`node install.mjs <tmp-target>`
+      を実行し、<tmp-target>/.github/workflows/conformance.yml をYAMLとしてパースする"
+    then: "jobsのキー集合が [\"gate\"] と一致する"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: YAMLパースしてjobsキー集合が[gate]とdeepEqual
+    evidence: tests/target-install-fixes.test.ts:109
+  - id: AC-084
+    kind: functional
+    given: "refs/remotes/origin/HEAD が refs/remotes/origin/main を指すgitリポジトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "配置されたconformance.ymlのon.push.branchesは
+      [main]、trace-matrixの--baseのフォールバックは
+      'main'、conformance.config.jsonのbaseRefは origin/main と一致する。標準出力に `default
+      branch: main (origin/HEAD)` の行を含む"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: push.branches=[main]・--baseフォールバック'main'・baseRef=origin/main・stdout行の4点を検証
+    evidence: tests/target-install-fixes.test.ts:116
+  - id: AC-085
+    kind: functional
+    given: "gitリポジトリではない空の一時ディレクトリを対象に（デフォルトブランチの検出に失敗する）"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "exit code 0を返し、conformance.config.jsonのbaseRefは origin/main と一致する。標準出力に
+      `default branch: main (fallback)` の行を含む。標準エラーに `fatal:` を含む行は0件になる"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 1
+    verified_at: 2026-09-25
+    note: exec()はspawnSyncで成功時もstderrを捕捉(:15-18)。exit0(:122)・baseRef=origin/main(:123)・fallback行(:124)・stderrにfatal:無し(:125)を全て検証し単独実行でpass。install.mjs:71のstderrをinheritに変えた変異コピーではfatal:が出てテストがfailすることを確認済みで、アサーションは空振りしていない
+    evidence: tests/target-install-fixes.test.ts:119
+  - id: AC-086
+    kind: functional
+    given: "refs/remotes/origin/HEAD が origin/main を指すgitリポジトリを対象に"
+    when: "`node install.mjs <tmp-target> --default-branch trunk` を実行する"
+    then: "conformance.config.jsonのbaseRefは
+      origin/trunk、conformance.ymlのon.push.branchesは [trunk] と一致する。標準出力に
+      `default branch: trunk (--default-branch)` の行を含む"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: origin/HEAD=mainのリポジトリで--default-branch trunkのbaseRef・branches・stdout行を検証
+    evidence: tests/target-install-fixes.test.ts:138
+  - id: AC-087
+    kind: functional
+    given: "空の一時ディレクトリを対象に"
+    when: "`node install.mjs <tmp-target> --with-samples` を実行する"
+    then: "specs/example-login/requirements.yaml・src/auth.ts・src/rogue.ts・tests/aut\
+      h.test.ts は作成され、.claude/commands/trend-watch.md は作成されない（存在しない）"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: サンプル4ファイルの存在とtrend-watch.mdの非存在を検証
+    evidence: tests/target-install-fixes.test.ts:149
+  # 読み替え: 冪等・べき等・同等・対等・平等・均等・劣等・優等・何等・等しい・等価・等号・等分・等級・等式・等辺
+  - id: AC-088
+    kind: functional
+    given: "thenに、AS-045で除外対象とした各語（「冪」「べき」「同」「対」「平」「均」「劣」「優」「何」の直後にU+7B49、U+7B49の直後\
+      に「しい」「価」「号」「分」「級」「式」「辺」）を1語ずつ含むACを持つdraftのspecで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --gate freeze --json` を実行する"
+    then: "JSON出力のfindingsに、messageがU+7B49を示すAMBIGUOUS_TERMの項目を出力しない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: 除外対象16語すべてを含むthenで、等のAMBIGUOUS_TERMが0件であることを検証（メッセージ形式はAC-089で1件ヒットすることで確認済み）
+    evidence: tests/target-install-fixes.test.ts:159
+  # 読み替え: 画面等に表示する
+  - id: AC-089
+    kind: functional
+    given: "thenに「画面」の直後にU+7B49が続き「に表示する」で終わる文を含むACを持つdraftのspecで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --gate freeze` を実行する"
+    then: "U+7B49のAMBIGUOUS_TERMをerrorとして出力し、exit code 1を返す"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: 画面等に表示するでerrorが1件・exit 1を検証
+    evidence: tests/target-install-fixes.test.ts:165
+  # 読み替え: 冪等に処理し、画面等に表示する
+  - id: AC-090
+    kind: functional
+    given: "thenに「冪」の直後のU+7B49と、「画面」の直後のU+7B49の両方を含む1文を持つACのdraftのspecで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --gate freeze` を実行する"
+    then: "U+7B49のAMBIGUOUS_TERMをerrorとして出力し、exit code 1を返す"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: 冪等と画面等が同じ文にあるとき、errorが1件・exit 1を検証
+    evidence: tests/target-install-fixes.test.ts:173
+  - id: AC-091
+    kind: functional
+    given: "refs/remotes/origin/HEADが存在せず、現在のブランチがfeature/xのgitリポジトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "conformance.config.jsonのbaseRefは origin/main と一致する（origin/feature/x
+      にならない）。標準出力に `default branch: main (fallback)` と `--default-branch
+      で指定できます` の行を含む"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: feature/x・origin/HEADなしでbaseRef=origin/main、fallback行と案内行の出力を検証
+    evidence: tests/target-install-fixes.test.ts:181
+  - id: AC-092
+    kind: functional
+    given: "空の一時ディレクトリ2つを対象に"
+    when: "`node install.mjs <tmp1> --with-samples --default-branch trunk` と `node
+      install.mjs <tmp2> --default-branch trunk --with-samples` をそれぞれ実行する"
+    then: "両方とも specs/example-login/requirements.yaml
+      が作成され、conformance.config.jsonのbaseRefは origin/trunk と一致する"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: 両方の順序でサンプルの作成とbaseRef=origin/trunkを検証
+    evidence: tests/target-install-fixes.test.ts:193
+  - id: AC-093
+    kind: functional
+    given: "空の一時ディレクトリを対象に"
+    when: "`--default-branch` の値を省略した場合と、値を `a'b` にした場合でそれぞれ `node install.mjs
+      <tmp-target>` を実行する"
+    then: "どちらもexit code 2を返し、標準エラーにブランチ名が不正である旨を出力し、<tmp-target>配下にファイルを1件も作成しない"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: 値なしとa'bの両方でexit 2・stderrのブランチ名が不正・ディレクトリが空であることを検証
+    evidence: tests/target-install-fixes.test.ts:204
+  - id: AC-094
+    kind: functional
+    given: "templates/conformance.config.jsonはあるがtemplates/conformance.ymlが無いキットのコピ\
+      ーから、空の一時ディレクトリを対象に"
+    when: "`node <kitコピー>/install.mjs <tmp-target>` を実行する"
+    then: "exit code 2を返し、標準エラーに「templates/conformance.yml
+      が見つかりません」を出力し、<tmp-target>配下にファイルを1件も作成しない"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: templates/conformance.ymlが無いキットのコピーでexit 2・メッセージ・ディレクトリが空であることを検証
+    evidence: tests/target-install-fixes.test.ts:215
+  - id: AC-095
+    kind: functional
+    given: "PATHにgitが無い環境（テストではPATHを空にしてnodeを絶対パスで起動する）で、空の一時ディレクトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "exit code 0を返し、conformance.config.jsonのbaseRefは origin/main と一致する"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: PATH空・nodeを絶対パスで起動してexit 0とbaseRef=origin/mainを検証
+    evidence: tests/target-install-fixes.test.ts:227
+  - id: AC-096
+    kind: functional
+    given: "baseRefがorigin/masterのconformance.config.jsonが既にあり、refs/remotes/origin/\
+      HEADがorigin/mainを指すgitリポジトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "conformance.config.jsonの内容は変わらない。標準出力に `既存の conformance.config.json の
+      baseRef (origin/master) は既定ブランチ main と異なります` を含む行を出力する"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: 既存ファイルがバイト単位で不変であることと警告行を検証
+    evidence: tests/target-install-fixes.test.ts:235
+  - id: AC-097
+    kind: functional
+    given: "空の一時ディレクトリを対象に"
+    when: "`node install.mjs <tmp-target>` を実行する"
+    then: "配置されたconformance.ymlとconformance.config.jsonで、__DEFAULT_BRANCH__
+      に一致する箇所は0件になる"
+    priority: must
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: yml・jsonの両方に__DEFAULT_BRANCH__が含まれないことを検証
+    evidence: tests/target-install-fixes.test.ts:248
+  - id: AC-098
+    kind: functional
+    given: "このリポジトリで"
+    when: "templates/conformance.ymlの __DEFAULT_BRANCH__ を master
+      に置換したものと、.github/workflows/conformance.yml をそれぞれYAMLとしてパースする"
+    then: "両者の jobs.gate の値が一致する"
+    priority: should
+    verify: test
+    status: pass
+    attempts: 0
+    verified_at: 2026-09-25
+    note: master置換後のテンプレートと自リポジトリのjobs.gateがdeepEqual
+    evidence: tests/target-install-fixes.test.ts:257

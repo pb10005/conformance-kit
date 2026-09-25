@@ -1,0 +1,259 @@
+# FEAT-009 — 要件の単一の正。実装・テスト・レビューはこれに従属する。
+#
+# 埋め方: 人間に質問する前に、AIが全項目を推測で埋め切ること。
+# 人間の仕事は白紙を埋めることではなく、埋まったものを否定・修正することにある。
+# 確信が持てない箇所は open_questions か assumptions に置き、空欄で残さない。
+id: FEAT-009
+title: "spec-lintにJevによるopt-inの意味チェック（warn専用）を追加する"
+status: draft # draft -> (spec-lint --gate freeze) -> frozen
+
+# 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
+intent: "conformance-kitのメンテナ・利用者が、spec-lint.tsのUNOBSERVABLE_THEN（観測動詞の辞書一致）では拾えない\
+  『観測できない then』（英語の要件、辞書にない言い回し）と、辞書に一致するだけで観測できる then を誤って指摘する誤検知を、\
+  TypeSafe AIのJev（@typesafe-ai/sdk）による意味判定で補えるかを試せるようにする。2026-09-24のTREND_BACKLOG.mdの判断\
+  （adopt: gateに組み込まないopt-inの補助警告として試行）を実装するもので、既定の動作・gate・CIの決定性は一切変えない。\
+  試行の結果は、TREND_BACKLOGの再検討条件（改善が実測できなければ取り下げ）の判断材料にする。"
+
+# 過剰実装を止める外周。draft を抜けるには最低1件必要。
+# 「やらないと決めたこと」であって「将来やること」ではない。
+out_of_scope:
+  - "gate.ts・.github/workflows/conformance.ymlからの意味チェックの呼び出し。gate（必須チェック）への昇格はTREND_BACKLOGの再検討条件\
+    （SLA公開と日本語要件での判定精度の実測）を満たした後に別specで扱う"
+  - "CIへのTYPESAFE_API_KEYシークレットの登録・参照"
+  - "then の観測可能性以外の意味チェック（曖昧語・異常系の有無・複合then・非機能要件の数値の判定）"
+  - "既存の正規表現ベースの検査（AMBIGUOUS_TERM・UNOBSERVABLE_THENを含む全検査コード）の判定条件・level・重みの変更、および意味チェックの結果による既存findingの抑制"
+  - "判定精度（誤検知率・見逃し率）を自動で集計・評価する仕組み。試行結果の評価は人間が行う"
+  - "しきい値・モデル・問い文をconformance.config.jsonやCLI引数で変更できるようにすること"
+  - "Jev以外のモデル・プロバイダ（OpenRouter・Vercel/Netlify AI Gatewayを含む）経由での呼び出し"
+  - "install.mjsによる@typesafe-ai/sdkの自動インストール、および導入先package.jsonへの依存追加"
+  - "判定結果のキャッシュ・永続化"
+
+# 確信が持てないまま進める判断。コード側に @assumption AS-XXX を残して回収可能にする。
+# owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
+assumptions:
+  - id: AS-035
+    statement: "意味チェックは spec-lint.ts に `--semantic` フラグを明示した時だけ動く。TYPESAFE_API_KEYが環境にあるだけでは動かない\
+      （キーが入った環境で要件テキストが暗黙に外部送信されるのを防ぐ）"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-08"
+  - id: AS-036
+    statement: "判定対象はthenの観測可能性だけとする。spec-lint.tsが今回の実行で検査対象にしたspec（位置引数で絞った場合はその配下だけ、statusは問わない）の、\
+      thenがtrim後に空でないACごとに1リクエストを送る。stateはthenの文字列のみ、\
+      問いはnoul（yes/no確率）1問『このthenは外部から観測できる結果（返す値・出力・保存内容・拒否のいずれか）を述べているか』とする"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-08"
+  - id: AS-037
+    statement: "noulの値が0.5未満のACについて、warn SEMANTIC_UNOBSERVABLE_THEN を出力する。比較は丸める前の値で行い、メッセージにはnoulの値を小数2桁の切り捨てで含める（0.499は0.49と表示する）。\
+      しきい値0.5は試行用の仮値で、変更は本specの再reconcileで行う"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-08"
+  - id: AS-038
+    statement: "モデルは jev-latest ではなく jev-1.13.0 に固定する（TREND_BACKLOG: 公開された弱点リストと実際に呼ぶモデルを一致させるため）。\
+      タイムアウトは1リクエスト10000ミリ秒、SDKの自動リトライは0回とする。並列数は4、意味チェック全体の上限は60000ミリ秒とする。\
+      応答のmodelがjev-1.13.0と一致しない場合は判定に使わない。クライアントはlogLevel: \"off\"を明示して生成し、環境変数TYPESAFE_LOG_LEVELを無視する"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-08"
+  - id: AS-039
+    statement: "@typesafe-ai/sdkはキット自身のpackage.jsonのdevDependenciesに入れる（テストと型のため）。spec-lint.tsと配布されるscripts/は\
+      SDKを静的importせず、`--semantic` 指定時にだけ動的importする。SDKの型はimportせずspec-lint側に最小のローカル型を置き、\
+      import指定子は変数経由にしてTypeScriptの型解決の対象外にする。SDKが未インストールの導入先でも、spec-lint.tsの通常実行とtsc --noEmitは\
+      影響を受けない"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-08"
+  - id: AS-040
+    statement: "意味チェックが実行できない場合（キー未設定・SDK未インストール・HTTPエラー・タイムアウト・不正な応答）は、warn SEMANTIC_SKIPPEDを\
+      実行1回につき1件（ref: semantic）出力して残りの検査を続行する。メッセージは no-api-key / sdk-missing / http-<status> / timeout /\
+      invalid-response のいずれかで始め、SDKのエラー文字列はそのまま載せない。1件でも失敗したら残りのリクエストを中止し、失敗前に得た判定結果は出力する。意味チェックに起因してexit codeが変わることはない（0/1は既存の検査結果だけで決まり、2にもならない）"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-08"
+
+  - id: AS-041
+    statement: "`--semantic --json` のとき、出力JSONのトップレベルに `semantic: [{ref, noul}]` を加え、判定できた全ACのnoulを丸めずに載せる。\
+      findingsの既存項目には手を加えない。試行の評価（UNOBSERVABLE_THENとnoulの突き合わせ）はこの配列を人間が見て行う"
+    status: confirmed
+    owner: pb10005
+    resolve_by: "2026-10-08"
+
+# 人間の判断が要る未決事項。frozen にするには空にする（確定させるか assumptions へ降格）。
+open_questions: []
+
+# 受入基準。ハッピーパスだけ書くと必ず後で破綻するので、異常系を必ず1件以上入れる。
+# then には外から観測できる結果を書く（返す/表示/保存/拒否…）。「対応する」「できる」は不可。
+acceptance:
+  - id: AC-062
+    kind: functional
+    given: "TYPESAFE_API_KEYが設定され、TYPESAFE_BASE_URLがリクエストを記録するローカルのモックサーバーを指す環境で"
+    when: "`npx tsx scripts/spec-lint.ts <dir>` を `--semantic` なしで実行する"
+    then: "モックサーバーが受信したリクエストは0件になる。出力にSEMANTIC_で始まるコードを含まない"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-063
+    kind: functional
+    given: "モックサーバーがあるACのthenに対してnoul 0.2を返す環境で"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "そのAC-IDをrefとするwarn SEMANTIC_UNOBSERVABLE_THENを出力し、メッセージに 0.20 を含む"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-064
+    kind: functional
+    given: "モックサーバーがあるACのthenに対してnoul 0.9を返す環境で"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "そのAC-IDをrefとするSEMANTIC_UNOBSERVABLE_THENを出力しない"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-065
+    kind: functional
+    given: "意味チェック以外に違反の無いdraftのspecと、全ACにnoul 0.1を返すモックサーバーで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic --gate freeze` を実行する"
+    then: "SEMANTIC_UNOBSERVABLE_THENはwarn（!）として出力され、exit code 0を返す"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-066
+    kind: functional
+    given: "TYPESAFE_API_KEYが未設定で、TYPESAFE_BASE_URLがモックサーバーを指す環境で"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "no-api-keyで始まるwarn SEMANTIC_SKIPPEDを1件出力し、モックサーバーの受信リクエストは0件、exit codeは `--semantic` なしで実行した場合と一致する"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-067
+    kind: functional
+    given: "モックサーバーが全リクエストにHTTP 500を返す環境で"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "http-500で始まるwarn SEMANTIC_SKIPPEDを出力し、exit codeは `--semantic` なしで実行した場合と一致する（2にならない）"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-068
+    kind: functional
+    given: "given・when・intentに固有の文字列を含むACを1件持つspecと、リクエスト本文を記録するモックサーバーで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "記録されたリクエスト本文のstateはthenの文字列と一致し、modelはjev-1.13.0と一致する。本文にgiven・when・intentの固有文字列を含まない"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-069
+    kind: functional
+    given: "node_modulesに@typesafe-ai/sdkが無い（yamlだけがある）一時ディレクトリにscripts/spec-lint.tsをコピーし、TYPESAFE_API_KEYを設定した状態で"
+    when: "そのコピーを `--semantic` 付きで実行する"
+    then: "sdk-missingで始まるwarn SEMANTIC_SKIPPEDを出力し、exit codeは2にならない"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-070
+    kind: functional
+    given: "このリポジトリのscripts/配下の全ファイルについて"
+    when: "本文を読む"
+    then: "正規表現 `from\\s+[\"']@typesafe-ai/sdk[\"']` に一致する箇所が0件になる"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-071
+    kind: functional
+    given: "このリポジトリの .github/workflows/conformance.yml と scripts/gate.ts について"
+    when: "本文を読む"
+    then: "`--semantic` と `TYPESAFE_API_KEY` のそれぞれに一致する箇所が0件になる"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-072
+    kind: functional
+    given: "then に観測動詞が無くUNOBSERVABLE_THENが出るACを1件持つspecと、そのACにnoul 0.9を返すモックサーバーで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic --json` を実行する"
+    then: "JSON出力のfindingsにUNOBSERVABLE_THENが残る。semantic配列にそのAC-IDとnoul 0.9の組を含む"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-073
+    kind: functional
+    given: "@typesafe-ai/sdkがnode_modulesに無く、typescript・@types/node・yamlはある一時ディレクトリに、キットのtsconfig.jsonとscripts/をコピーした状態で"
+    when: "`tsc --noEmit` を実行する"
+    then: "exit code 0を返す"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-074
+    kind: functional
+    given: "AC-Aにnoul 0.2を、AC-Bに1000ミリ秒遅らせてHTTP 500を返すモックサーバーで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "AC-AのSEMANTIC_UNOBSERVABLE_THENを1件、SEMANTIC_SKIPPEDを1件出力する"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-075
+    kind: functional
+    given: "全リクエストに30秒間応答しないモックサーバーと、thenを持つACが4件のspecで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "20秒以内に終了し、timeoutで始まるSEMANTIC_SKIPPEDを出力する"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-076
+    kind: functional
+    given: "HTTP 200でanswersのnoulに1.5を返す（範囲外）モックサーバーで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "SEMANTIC_UNOBSERVABLE_THENを出力せず、invalid-responseで始まるSEMANTIC_SKIPPEDを出力する"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-077
+    kind: functional
+    given: "応答のmodelにjev-1.14.0を返すモックサーバーで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "invalid-responseで始まり、jev-1.14.0を含むSEMANTIC_SKIPPEDを出力する"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-078
+    kind: functional
+    given: "TYPESAFE_LOG_LEVEL=debug、TYPESAFE_API_KEYに固有文字列、全リクエストにHTTP 500を返すモックサーバーの環境で"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic --json` を実行する"
+    then: "stdout全体がJSON.parseに成功する。stdoutとstderrのどちらにもAPIキーの固有文字列が現れない（一致0件）"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-079
+    kind: functional
+    given: "specs/a（thenを持つAC 2件とthenが空文字のAC 1件）とspecs/b（AC 3件）、リクエストを記録するモックサーバーで"
+    when: "`npx tsx scripts/spec-lint.ts specs/a --semantic` を実行する"
+    then: "受信リクエストは2件と一致する。specs/bのthen文字列はどのリクエスト本文にも現れない（一致0件）"
+    priority: must
+    verify: test
+    status: pending
+    attempts: 0
+  - id: AC-080
+    kind: functional
+    given: "noul 0.5を返すモックサーバーで"
+    when: "`npx tsx scripts/spec-lint.ts <dir> --semantic` を実行する"
+    then: "SEMANTIC_UNOBSERVABLE_THENを出力しない"
+    priority: should
+    verify: test
+    status: pending
+    attempts: 0
