@@ -1,7 +1,7 @@
 // @covers AC-081, AC-082, AC-083, AC-084, AC-085, AC-086, AC-087, AC-088, AC-089, AC-090, AC-091, AC-092, AC-093, AC-094, AC-095, AC-096, AC-097, AC-098
 import { describe, it } from "node:test";
 import assert from "node:assert";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, readFileSync, readdirSync, existsSync, copyFileSync } from "node:fs";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
@@ -13,18 +13,9 @@ const installer = join(repoRoot, "install.mjs");
 
 interface Result { code: number; stdout: string; stderr: string }
 function exec(args: string[], opts: { cwd?: string; env?: NodeJS.ProcessEnv } = {}): Result {
-  try {
-    const stdout = execFileSync(process.execPath, args, {
-      cwd: opts.cwd ?? repoRoot,
-      env: opts.env ?? process.env,
-      encoding: "utf8",
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    return { code: 0, stdout, stderr: "" };
-  } catch (err) {
-    const e = err as { status?: number; stdout?: Buffer | string; stderr?: Buffer | string };
-    return { code: e.status ?? 1, stdout: e.stdout?.toString() ?? "", stderr: e.stderr?.toString() ?? "" };
-  }
+  // 成功時も標準エラーを捕捉する（「gitのfatal:が出ない」を実際に観測するため）
+  const r = spawnSync(process.execPath, args, { cwd: opts.cwd ?? repoRoot, env: opts.env ?? process.env, encoding: "utf8" });
+  return { code: r.status ?? 1, stdout: r.stdout ?? "", stderr: r.stderr ?? "" };
 }
 const install = (target: string, ...extra: string[]) => exec([installer, target, ...extra]);
 
