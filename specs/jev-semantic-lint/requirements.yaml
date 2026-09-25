@@ -5,7 +5,7 @@
 # 確信が持てない箇所は open_questions か assumptions に置き、空欄で残さない。
 id: FEAT-009
 title: "spec-lintにJevによるopt-inの意味チェック（warn専用）を追加する"
-status: frozen # draft -> (spec-lint --gate freeze) -> frozen
+status: draft # draft -> (spec-lint --gate freeze) -> frozen
 
 # 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
 intent: "conformance-kitのメンテナ・利用者が、spec-lint.tsのUNOBSERVABLE_THEN（観測動詞の辞書一致）では拾えない\
