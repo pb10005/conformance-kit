@@ -57,7 +57,8 @@ assumptions:
       main。現在のブランチ（作業ブランチになりがち）は使わない。gitの失敗（リポジトリでない・gitがPATHに無い）は(3)へ進み、gitの標準\
       エラーは表示しない。決めた結果を `default branch: <name> (<source>)` の1行で出力する。sourceは
       --default-branch / origin/HEAD / fallback のいずれか。fallbackの時は続けて
-      `--default-branch で指定できます` を1行出力する。origin/HEADが指すブランチ名がAS-046の受理条件に合わない場合も(3)へ進む"
+      `--default-branch で指定できます`
+      を1行出力する。origin/HEADが指すブランチ名がAS-046の受理条件に合わない場合も(3)へ進む"
     status: confirmed
     owner: pb10005
     resolve_by: "2026-10-09"
@@ -78,7 +79,9 @@ assumptions:
   - id: AS-047
     statement: "導入先に既存のconformance.config.jsonがあり、そのbaseRefが origin/<決めたブランチ名>
       と異なる場合、ファイルは書き換えずに`! 既存の conformance.config.json の baseRef (<既存値>) は既定ブランチ
-      <name> と異なります` を1行出力する。既存のconformance.ymlは内容を比較しない。既存ファイルにbaseRefキーが無い場合と、JSONとして読めない場合は警告を出さない（後者の扱いはtrace-matrix.tsに任せる）"
+      <name> と異なります`
+      を1行出力する。既存のconformance.ymlは内容を比較しない。既存ファイルにbaseRefキーが無い場合と、JSONとして読めない場合は\
+      警告を出さない（後者の扱いはtrace-matrix.tsに任せる）"
     status: confirmed
     owner: pb10005
     resolve_by: "2026-10-09"
@@ -152,13 +155,11 @@ acceptance:
       `default branch: main (fallback)` の行を含む。標準エラーに `fatal:` を含む行は0件になる"
     priority: must
     verify: test
-    status: fail
+    status: pass
     attempts: 1
     verified_at: 2026-09-25
-    note: exit
-      0とbaseRef・fallback行は検証済みだが、exec()ヘルパー(tests/target-install-fixes.test.ts:23)は成功時にstderrを常に空文字で返すため、fatal:が0件というアサーションは空振りしている（stderrにfatal:を出してexit
-      0する子で再現済み）。実装自体はspawnSyncで捕捉してもfatal:0件だった。成功時にもstderrを捕捉するようテストを直すこと
-    evidence: tests/target-install-fixes.test.ts:134
+    note: exec()はspawnSyncで成功時もstderrを捕捉(:15-18)。exit0(:122)・baseRef=origin/main(:123)・fallback行(:124)・stderrにfatal:無し(:125)を全て検証し単独実行でpass。install.mjs:71のstderrをinheritに変えた変異コピーではfatal:が出てテストがfailすることを確認済みで、アサーションは空振りしていない
+    evidence: tests/target-install-fixes.test.ts:119
   - id: AC-086
     kind: functional
     given: "refs/remotes/origin/HEAD が origin/main を指すgitリポジトリを対象に"
