@@ -8,13 +8,19 @@ title: "gate.ts のテスト段を導入先のテストランナー（VitestやJ
 status: frozen # draft -> (spec-lint --gate freeze) -> frozen
 
 # 誰のどの困りごとを解くのか。1文。実装判断に迷った時の最終的な拠り所になる。
-intent: "gate.ts の3段目（テスト）は `node --test --experimental-strip-types tests/*.test.ts` に固定されており、Vitest・Jest・Playwrightでテストを書く導入先（Next.jsアプリのKOTSUが最初の事例）では `npm run gate` が必ず落ちる。trace-matrix.ts はVitest/Jest/Playwrightのタイトルを既にカバー判定できるのに、ゲートだけが node:test を前提にしている食い違いを解消する。設定を書かない既存の導入先の挙動は変えない。"
+intent: "gate.ts の3段目（テスト）は `node --test --experimental-strip-types
+  tests/*.test.ts`
+  に固定されており、Vitest・Jest・Playwrightでテストを書く導入先（Next.jsアプリのKOTSUが最初の事例）では `npm run
+  gate` が必ず落ちる。trace-matrix.ts はVitest/Jest/Playwrightのタイトルを既にカバー判定できるのに、ゲートだけが
+  node:test を前提にしている食い違いを解消する。設定を書かない既存の導入先の挙動は変えない。"
 
 # 過剰実装を止める外周。draft を抜けるには最低1件必要。
 # 「やらないと決めたこと」であって「将来やること」ではない。
 out_of_scope:
-  - "任意のシェルコマンド文字列をテスト段として実行すること。gate.ts はシェルを経由しない方針（FEAT-003）を保ち、npm スクリプト名の指定だけを受け付ける"
-  - "install.mjs による testRunner の自動判定・自動設定（package.json の scripts.test を見て書き換えること）"
+  - "任意のシェルコマンド文字列をテスト段として実行すること。gate.ts はシェルを経由しない方針（FEAT-003）を保ち、npm
+    スクリプト名の指定だけを受け付ける"
+  - "install.mjs による testRunner の自動判定・自動設定（package.json の scripts.test
+    を見て書き換えること）"
   - "テスト結果（JUnit XML形式の出力）を解析してACごとの合否を record-verdict.ts へ自動記録すること"
   - "gate.ts の1段目（spec-lint）・2段目（trace-matrix）・4段目（tsc）の実行方法の変更"
   - "キット自身の conformance.config.json の testRunner 変更。キット自身は従来どおり node:test で検査する"
@@ -23,12 +29,19 @@ out_of_scope:
 # owner と resolve_by が無い仮決めは、誰も確定させないまま本番に入る。
 assumptions:
   - id: AS-048
-    statement: "conformance.config.json に `testRunner` を追加する。値は \"node-test\"（既定・未指定と同じ。従来の node --test 実行）または \"npm-script\"。\"npm-script\" のときは `testScript`（既定 \"test\"）で指定した package.json のスクリプトを `npm run <testScript>` で実行する"
+    statement: "conformance.config.json に `testRunner` を追加する。値は
+      \"node-test\"（既定・未指定と同じ。従来の node --test 実行）または
+      \"npm-script\"。\"npm-script\" のときは `testScript`（既定 \"test\"）で指定した
+      package.json のスクリプトを `npm run <testScript>` で実行する"
     status: assumed
     owner: pb10005
     resolve_by: "2026-10-31"
   - id: AS-049
-    statement: "npm はシェルや .cmd シムを経由せず、`process.execPath <npm-cli.js> run <script>` で起動する。npm-cli.js は環境変数 npm_execpath（`npm run gate` 経由なら npm が設定する）を優先し、無ければ node 実行ファイルの位置から npm 同梱の場所（POSIX: <prefix>/lib/node_modules/npm/bin/npm-cli.js、Windows: <nodeDir>/node_modules/npm/bin/npm-cli.js）を探す"
+    statement: "npm はシェルや .cmd シムを経由せず、`process.execPath <npm-cli.js> run <script>`
+      で起動する。npm-cli.js は環境変数 npm_execpath（`npm run gate` 経由なら npm
+      が設定する）を優先し、無ければ node 実行ファイルの位置から npm 同梱の場所（POSIX:
+      <prefix>/lib/node_modules/npm/bin/npm-cli.js、Windows:
+      <nodeDir>/node_modules/npm/bin/npm-cli.js）を探す"
     status: assumed
     owner: pb10005
     resolve_by: "2026-10-31"
@@ -43,20 +56,29 @@ acceptance:
     kind: functional
     given: "conformance.config.json に testRunner が無い状態で"
     when: "gate.ts のテスト段の起動内容を求める"
-    then: "node --test --test-concurrency=1 --experimental-strip-types と tests/ 配下の *.test.ts を引数に持つ従来どおりの起動内容を返す"
+    then: "node --test --test-concurrency=1 --experimental-strip-types と tests/ 配下の
+      *.test.ts を引数に持つ従来どおりの起動内容を返す"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-10-01
+    note: testRunner未指定で引数列全体をdeepEqual。helper.tsが除外され*.test.tsのみ含むことも確認。6/6 pass
+    evidence: tests/gate-test-runner.test.ts:21
   - id: AC-100
     kind: functional
-    given: "testRunner が \"npm-script\" で、package.json の scripts.test がマーカーファイルを書き出すプロジェクトで"
+    given: "testRunner が \"npm-script\" で、package.json の scripts.test
+      がマーカーファイルを書き出すプロジェクトで"
     when: "gate.ts のテスト段の起動内容を実行する"
     then: "scripts.test が実行され、マーカーファイルが作成される"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-10-01
+    note: 実プロジェクトでgate.tsと同じspawnSync(process.execPath,args)を実行し、exit
+      0とmarker.txt作成の両方をアサート
+    evidence: tests/gate-test-runner.test.ts:36
   - id: AC-101
     kind: functional
     given: "testRunner が \"npm-script\"・testScript が \"test:unit\" のプロジェクトで"
@@ -64,8 +86,11 @@ acceptance:
     then: "引数の末尾が run test:unit の起動内容を返す"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-10-01
+    note: testScript=test:unitで末尾2要素が[run,test:unit]であることをdeepEqual
+    evidence: tests/gate-test-runner.test.ts:48
   - id: AC-102
     kind: functional
     given: "testRunner に \"node-test\"・\"npm-script\" 以外の値 \"vitest\" を書いた状態で"
@@ -73,8 +98,12 @@ acceptance:
     then: "テストを実行せずに exit code 2 で終了し、不正な testRunner の値をエラー出力に含む"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-10-01
+    note: gate.ts(npm run gateと同一のtsx scripts/gate.ts)を実起動。exit
+      2・stderrにvitest・3/4段未到達を検証。gate.ts:33-39で段実行前に終了
+    evidence: tests/gate-test-runner.test.ts:53
   - id: AC-103
     kind: functional
     given: "環境変数 npm_execpath が未設定で、testRunner が \"npm-script\" の状態で"
@@ -82,14 +111,21 @@ acceptance:
     then: "node 実行ファイルの位置から見つけた npm-cli.js を第1引数に持つ起動内容を返す"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-10-01
+    note: env={}で第1引数がnpm-cli.jsで終わり実在し、node実行ファイルの親ディレクトリ配下であることをアサート
+    evidence: tests/gate-test-runner.test.ts:72
   - id: AC-104
     kind: functional
-    given: "testRunner が \"npm-script\" で、package.json の scripts.test が exit code 1 で終了するプロジェクトで"
+    given: "testRunner が \"npm-script\" で、package.json の scripts.test が exit code 1
+      で終了するプロジェクトで"
     when: "gate.ts のテスト段の起動内容を実行する"
     then: "非0の終了コードを返す"
     priority: must
     verify: test
-    status: pending
+    status: pass
     attempts: 0
+    verified_at: 2026-10-01
+    note: scripts.testがexit 1のプロジェクトで起動内容を実行し非0をアサート。gate.ts:43で非0がそのまま伝播
+    evidence: tests/gate-test-runner.test.ts:81
