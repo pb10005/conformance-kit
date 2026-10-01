@@ -65,6 +65,18 @@ PowerShell/cmd.exe でも Git Bash や WSL を別途用意せずにそのまま�
 既存の `CLAUDE.md` があれば末尾に追記、`package.json` の `scripts` に不足分だけ追加する。
 既存ファイルは上書きせず、二重実行しても安全。
 
+### テストランナーの指定（Vitest / Jest / Playwright を使う場合）
+
+`npm run gate` のテスト段は、既定では `node --test --experimental-strip-types tests/*.test.ts` を実行する。
+VitestやJestで書いた導入先では、`conformance.config.json` に次を足すと `npm run <testScript>`（既定 `test`）を実行する。
+
+```json
+{ "testRunner": "npm-script", "testScript": "test" }
+```
+
+npm はシェルや `.cmd` シムを経由せず `node <npm-cli.js> run <script>` で起動するため、Windows でもそのまま動く。
+`testRunner` に `"node-test"`・`"npm-script"` 以外を書くと、gate は何も実行せず exit 2 で止まる（`specs/gate-test-runner/`、FEAT-011）。
+
 規約は2つだけ（詳細は CLAUDE.md）。
 
 - `it()`/`test()` のタイトルに AC-ID を含める … `it("AC-001: 未登録アドレスでも200を返す", ...)`

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @covers AC-012, AC-013
+// @covers AC-012, AC-013, AC-099, AC-100, AC-101, AC-102, AC-103, AC-104
 /**
  * gate.ts
  *
@@ -14,16 +14,29 @@
  *   npx tsx scripts/gate.ts [-- trace-matrixへの追加引数]
  */
 import { spawnSync } from "node:child_process";
-import { readdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { resolveTsxCli } from "./lib/tsx-cli.ts";
+import { resolveTestInvocation, TestRunnerConfigError } from "./lib/test-runner.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 process.chdir(root);
 
 const tsxCli = resolveTsxCli();
 const tscBin = join(root, "node_modules", "typescript", "bin", "tsc");
+
+// テスト段の起動内容は最初に決める。設定が不正なら何も実行せずに止める（FEAT-011）
+const cfgPath = join(root, "conformance.config.json");
+const cfg = existsSync(cfgPath) ? JSON.parse(readFileSync(cfgPath, "utf8")) : {};
+let testArgs: string[];
+try {
+  testArgs = resolveTestInvocation(root, cfg);
+} catch (err) {
+  if (!(err instanceof TestRunnerConfigError)) throw err;
+  console.error(`conformance.config.json: ${err.message}`);
+  process.exit(2);
+}
 
 function run(args: string[]): void {
   const result = spawnSync(process.execPath, args, { stdio: "inherit" });
@@ -37,10 +50,7 @@ console.log("── 2/4 トレーサビリティ");
 run([tsxCli, "scripts/trace-matrix.ts", ...process.argv.slice(2)]);
 
 console.log("── 3/4 テスト");
-const testFiles = readdirSync(join(root, "tests"))
-  .filter((f) => f.endsWith(".test.ts"))
-  .map((f) => join("tests", f));
-run(["--test", "--test-concurrency=1", "--experimental-strip-types", ...testFiles]);
+run(testArgs);
 
 console.log("── 4/4 型");
 run([tscBin, "--noEmit"]);
